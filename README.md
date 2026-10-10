@@ -2,7 +2,7 @@
 
 DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant. The name is a play on Devil May Cry.
 
-Release route: **f2g**. Build with `./scripts/native/build-plugin.sh --plugin`.
+Release route: **Original DLL**. Build with `./scripts/native/build-plugin.sh`.
 
 This patch lets one Split Pivot and one Split Orbit remain active simultaneously and survive other finishers. Native duration, expiry, cancels, same-move retrigger behavior, ownership and upgrades remain intact. See CHANGELOG.md.
 
