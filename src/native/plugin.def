@@ -1,0 +1,3 @@
+LIBRARY combatloadout
+EXPORTS
+    CrModStop @200

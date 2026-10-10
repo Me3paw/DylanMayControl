@@ -1,0 +1,204 @@
+#cr-loadout-panel {
+    position:relative;width:100%;max-height:38vh;overflow-y:auto;box-sizing:border-box;
+    margin:1.2vh 0 0;padding:0;color:rgb(232,232,232);font:inherit;font-size:1.65vh;line-height:1.35;
+}
+#cr-loadout-panel * { box-sizing: border-box; }
+#cr-loadout-panel .cr-loadout-header, #cr-loadout-panel .cr-loadout-row-heading,
+#cr-loadout-panel .cr-loadout-controls { display: flex; align-items: center; }
+#cr-loadout-panel .cr-loadout-header { justify-content: space-between; }
+#cr-loadout-panel .cr-loadout-settings-toggle { margin-left: auto; margin-right: 16px; }
+#cr-loadout-panel .cr-loadout-equipped { margin: 0 0 6px; font-size: 18px; color: #f2f2ef; }
+#cr-loadout-panel .cr-loadout-settings { max-width: 100%; }
+#cr-loadout-panel .cr-loadout-binding { display:flex;flex-wrap:wrap;width:100%;margin:18px 0;align-items:flex-start; }
+#cr-loadout-panel .cr-loadout-binding span { font-size: 16px; color: #c6ced2; }
+#cr-loadout-panel .cr-loadout-binding button { min-height:44px; }
+#cr-loadout-panel .cr-loadout-settings-message { color: #c6ced2; min-height: 1.4em; }
+#cr-loadout-panel .cr-loadout-title { margin: 0; font-size: 32px; font-weight: 700; }
+#cr-loadout-panel .cr-loadout-intro { margin: 8px 0 16px; }
+#cr-loadout-panel .cr-loadout-notice { margin: 0 0 20px; min-height: 1.4em; color: rgba(232,232,232,.75); }
+#cr-loadout-panel .cr-loadout-notice:empty, #cr-loadout-panel .cr-loadout-channel-status:empty { display: none; }
+#cr-loadout-panel .cr-loadout-columns { display: flex; flex-wrap: wrap; margin: 0 -14px; }
+#cr-loadout-panel .cr-loadout-channel { flex: 1 1 440px; min-width: 0; padding: 0 14px; }
+#cr-loadout-panel h3 { margin: 0 0 6px; color: rgb(232,232,232); font-size: 24px; }
+#cr-loadout-panel .cr-loadout-channel-status { min-height: 2.8em; margin: 0 0 12px; color: #c6ced2; font-size: 16px; }
+#cr-loadout-panel .cr-loadout-row { padding: 14px 0; border-top: 1px solid rgba(242, 242, 239, .18); }
+#cr-loadout-panel .cr-loadout-row-heading { margin-bottom: 8px; }
+#cr-loadout-panel .cr-loadout-slot { flex: 0 0 62px; color: #c6ced2; font-size: 16px; }
+#cr-loadout-panel .cr-loadout-name { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; word-break: break-all; font-weight: 700; }
+#cr-loadout-panel .cr-loadout-selected { flex: 0 0 auto; margin-left: 10px; color: rgb(232,232,232); font-size: 14px; }
+#cr-loadout-panel .cr-loadout-controls { flex-wrap: wrap; }
+#cr-loadout-panel button, #cr-loadout-panel select {
+    margin: 0 6px 6px 0; padding: 9px 10px; border: 1px solid rgba(242, 242, 239, .24);
+    border-radius: 0; background: rgba(232,232,232,.08); color: #f2f2ef; font: inherit; font-size: 16px; line-height: 1.25;
+}
+#cr-loadout-panel .cr-loadout-picker { display: flex; flex-wrap: wrap; align-items: center; min-width: 0; max-width: 100%; margin: 0 0 8px; }
+#cr-loadout-panel .cr-loadout-pick-hint { flex: 0 0 100%; margin: 0 0 4px; color: #c6ced2; font-size: 14px; }
+#cr-loadout-panel .cr-loadout-choice { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#cr-loadout-panel .cr-loadout-choice.is-picked { background: rgba(232,232,232,.2); border-color: rgb(232,232,232); outline: 1px solid rgb(232,232,232); outline-offset: -2px; }
+#cr-loadout-panel button { cursor: pointer; }
+#cr-loadout-panel button:hover, #cr-loadout-panel button:focus, #cr-loadout-panel select:focus {
+    background: #f2f2ef; color: #10191f; outline: 2px solid #f2f2ef; outline-offset: 2px;
+}
+#cr-loadout-panel button:disabled, #cr-loadout-panel select:disabled {
+    background: rgba(232,232,232,.05); color: #999; border-color: #555; cursor: default; outline: none;
+}
+#cr-loadout-panel option:disabled { color: #999; }
+#cr-loadout-panel .cr-loadout-row-message, #cr-loadout-panel .cr-loadout-help { margin: 4px 0 0; color: #c6ced2; font-size: 14px; }
+#cr-loadout-panel .cr-loadout-help { margin-top: 20px; padding-top: 14px; border-top: 1px solid rgba(242, 242, 239, .18); }
+#cr-loadout-panel ::selection { background: rgb(232,232,232); color: rgb(13,13,13); }
+#cr-loadout-panel::-webkit-scrollbar { width: 8px; }
+#cr-loadout-panel::-webkit-scrollbar-track { background: #171717; }
+#cr-loadout-panel::-webkit-scrollbar-thumb { background: #777; }
+/* Native weapon artwork in the inventory's triangular slot shape. */
+.cr-weapon-hud {
+    position:fixed;right:28px;bottom:29vh;z-index:300;display:flex;gap:12px;
+    color:#eee;font:13px/1.4 Arial,sans-serif;pointer-events:none;
+}
+.cr-weapon-slot {
+    position:relative;width:88px;height:98px;text-align:center;
+    isolation:isolate;
+}
+.cr-weapon-slot::before {content:"";position:absolute;inset:0;z-index:-1;background:rgba(10,20,27,.65);clip-path:polygon(50% 0,100% 83%,100% 100%,0 100%,0 83%);}
+.cr-weapon-slot.is-queued::before {background:rgba(18,77,80,.85);}
+.cr-weapon-icon {display:block;object-fit:contain;width:58px;height:58px;margin:13px auto 0;}
+.cr-weapon-channel {display:block;font-size:12px;line-height:16px;}
+.cr-weapon-state {display:block;font-size:11px;color:#74eeee;line-height:14px;}
+.cr-loadout-bind-button {min-width:140px;width:auto;flex:1 1 140px;}
+.cr-loadout-binding-device {display:flex;flex-wrap:wrap;flex:1 1 230px;min-width:230px;margin:0 14px 0 0;}
+.cr-loadout-binding-label {flex:0 0 100%;margin-bottom:8px;}
+.cr-loadout-binding {display:flex;flex-wrap:wrap;align-items:flex-start;}
+#cr-loadout-panel .cr-loadout-binding > span {flex:0 0 100%;margin-bottom:10px;}
+#cr-loadout-panel .cr-loadout-settings-tabs {display:flex;margin-bottom:20px;}
+#cr-loadout-panel .cr-loadout-settings-tab[aria-selected="true"] {background:#f2f2ef;color:#17222b;}
+#cr-loadout-panel .cr-loadout-settings-timing .cr-loadout-contact-margin:first-child {margin-top:0;border-top:0;padding-top:0;}
+
+#cr-loadout-panel .cr-loadout-contact-margin {margin-top:28px;border-top:1px solid rgba(242,242,239,.18);padding-top:20px;}
+#cr-loadout-panel .cr-loadout-margin-choices {display:flex;flex-wrap:wrap;gap:12px;}
+#cr-loadout-panel .cr-loadout-margin-choice {min-width:100px;min-height:44px;}
+#cr-loadout-panel .cr-loadout-margin-choice[aria-pressed="true"] {background:#f2f2ef;color:#17222b;}
+
+#cr-loadout-panel .cr-loadout-title{font-size:2.2vh;}
+#cr-loadout-panel .cr-loadout-intro{display:none;}
+#cr-loadout-panel .cr-loadout-channel{flex:1 1 45%;padding:0 .7vh;}
+#cr-loadout-panel .cr-loadout-columns{margin:0 -.7vh;flex-wrap:nowrap;}
+#cr-loadout-panel h3{font-size:1.8vh;margin:0 0 .6vh;}
+#cr-loadout-panel .cr-loadout-row{padding:.7vh 0;}
+#cr-loadout-panel .cr-loadout-row-heading{flex-wrap:wrap;margin:0;}
+#cr-loadout-panel .cr-loadout-slot{flex:0 0 100%;font-size:1.25vh;margin-bottom:.3vh;}
+#cr-loadout-panel .cr-loadout-selected{font-size:1.15vh;margin-left:0;}
+#cr-loadout-panel button{font-size:1.45vh;min-height:3.2vh;padding:.5vh .7vh;margin:0 .4vh .4vh 0;}
+#cr-loadout-panel .cr-loadout-assignment{display:flex;align-items:center;width:100%;text-align:left;min-height:5.2vh;}
+#cr-loadout-panel .cr-loadout-assignment-icon{width:4vh;height:4vh;object-fit:contain;flex-shrink:0;margin-right:.6vh;}
+#cr-loadout-panel .cr-loadout-picker{margin:.4vh 0;}
+#cr-loadout-panel .cr-loadout-equipped,#cr-loadout-panel .cr-loadout-help{display:none;}
+#cr-loadout-panel .cr-loadout-controls{margin-top:.4vh;}
+#cr-loadout-panel .cr-loadout-notice{font-size:1.3vh;margin:0 0 .7vh;}
+#cr-loadout-panel .cr-loadout-settings-toggle{margin:0 0 0 auto;}
+#cr-loadout-panel .cr-native-focused{background:rgb(232,232,232);color:rgb(13,13,13);outline:1px solid rgb(232,232,232);}
+#cr-loadout-panel .cr-loadout-binding{margin:1vh 0;}
+#cr-loadout-panel .cr-loadout-binding-device{flex-basis:100%;min-width:0;margin:.4vh 0;}
+#cr-loadout-panel .cr-loadout-binding-label{margin-bottom:.3vh;}
+#cr-loadout-panel .cr-loadout-bind-button{min-width:0;}
+#cr-loadout-panel .cr-loadout-margin-choices{gap:.5vh;}
+#cr-loadout-panel .cr-loadout-margin-choice{min-width:0;min-height:3.2vh;}
+
+.cr-native-browse{display:flex;gap:.4vh;margin:.3vh 0 .6vh;}
+.cr-native-browse button{font:inherit;font-size:1.4vh;padding:.6vh .8vh;border:1px solid rgba(232,232,232,.2);color:rgb(232,232,232);background:rgba(23,23,23,.7);}
+.cr-native-browse button:hover,.cr-native-browse button:focus,.cr-native-browse .cr-native-focused{background:rgb(232,232,232);color:rgb(13,13,13);outline:1px solid rgb(232,232,232);}
+
+#cr-loadout-panel .cr-loadout-assignment{margin:0;}
+#cr-loadout-panel .cr-loadout-assignment .cr-loadout-name{color:inherit;}
+#cr-loadout-panel .cr-loadout-assignment-icon{margin:0 .6vh 0 0;}
+#cr-loadout-panel .cr-loadout-controls button{min-height:2.8vh;padding:.35vh .6vh;}
+#cr-loadout-panel .cr-loadout-row-message:empty{display:none;}
+#cr-loadout-panel .cr-loadout-row-heading{min-height:0;}
+#cr-loadout-panel .cr-loadout-row{padding:.4vh 0;}
+#cr-loadout-panel .cr-loadout-assignment{min-height:4.4vh;}
+#cr-loadout-panel .cr-loadout-assignment-icon{width:3.4vh;height:3.4vh;}
+
+#cr-loadout-panel{overflow-x:hidden;}
+#cr-loadout-panel .cr-loadout-columns{margin:0;}
+#cr-loadout-panel .cr-loadout-channel{padding:0 .4vh;}
+@media(max-height:800px){#cr-loadout-panel{max-height:42vh;}.cr-native-browse button,#cr-loadout-panel button{font-size:12px;}#cr-loadout-panel .cr-loadout-slot,#cr-loadout-panel .cr-loadout-selected{font-size:11px;}}
+
+/* Native Weapon Forms ancestors intentionally suppress pointer hit testing. */
+#cr-loadout-panel,#cr-loadout-panel button,#cr-loadout-panel input,#cr-loadout-panel select,.cr-native-browse,.cr-native-browse button{pointer-events:auto;}
+#cr-loadout-panel .cr-loadout-channel-status:empty{display:none;min-height:0;margin:0;}
+#cr-loadout-panel .cr-loadout-channel-status{min-height:0;margin:0 0 .4vh;font-size:1.3vh;}
+#cr-loadout-panel .cr-loadout-header{margin-bottom:.5vh;}
+#cr-loadout-panel .cr-loadout-slot{margin-bottom:.2vh;}
+#cr-loadout-panel .cr-loadout-assignment{min-height:3.6vh;}
+#cr-loadout-panel .cr-loadout-assignment-icon{width:2.8vh;height:2.8vh;}
+#cr-loadout-panel .cr-loadout-controls button{min-height:2.5vh;}
+#cr-loadout-panel .cr-loadout-controls{margin-top:.2vh;}
+#cr-loadout-panel .cr-loadout-row{padding:.3vh 0;}
+#cr-loadout-panel .cr-loadout-settings-toggle{background:rgba(232,232,232,.08);}
+
+#cr-loadout-panel button,.cr-native-browse button{font-family:Arial,sans-serif;}
+#cr-loadout-panel .cr-loadout-columns{pointer-events:auto;}
+#cr-loadout-panel .cr-loadout-row-heading{margin-bottom:0;}
+#cr-loadout-panel .cr-loadout-row-heading{flex-wrap:wrap;}
+#cr-loadout-panel .cr-loadout-slot{flex:1 1 auto;}
+#cr-loadout-panel .cr-loadout-assignment{flex:0 0 100%;}
+
+/* Explicit rows avoid Cohtml wrapping a short slot label into its assignment. */
+#cr-loadout-panel .cr-loadout-row-heading{display:block;position:relative;}
+#cr-loadout-panel .cr-loadout-slot{display:block;white-space:nowrap;}
+#cr-loadout-panel .cr-loadout-selected{position:absolute;right:0;top:0;}
+#cr-loadout-panel .cr-loadout-assignment{display:flex;width:100%;}
+
+/* Mod settings live inside native Options scroll areas, without nested scrolling. */
+#cr-loadout-panel.cr-options-panel{display:block;width:100%;max-height:none;overflow:visible;margin:0 0 3vh;padding:0;pointer-events:auto;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-title{font-size:2.22vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-header{margin:0 0 1.5vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-settings{display:block;width:100%;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-settings-bindings>h3{display:none;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;margin:1vh 0;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding>span{flex:0 0 30%;margin:0;font-size:2vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding-device{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;flex:0 0 35%;min-width:0;margin:0;padding-left:.5vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding-label{display:none;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-bind-button{flex:1 1 auto;width:auto;min-width:0;min-height:4.2vh;font-size:1.8vh;margin:0 .4vh 0 0;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-bind-clear{flex:0 0 6vh;margin:0;min-height:4.2vh;font-size:1.5vh;}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings{display:flex;flex-direction:row;align-items:center;margin:0 0 1vh;font-size:1.8vh;}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings>span:first-child{flex:0 0 30%;}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings>span{flex:0 0 35%;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-settings-message{min-height:0;margin:.7vh 0 0;font-size:1.6vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-contact-margin{margin:0;padding:0;border:0;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-contact-margin h3{font-size:2vh;margin:0 0 1vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-contact-margin .cr-loadout-help{display:block;margin:0 0 1vh;padding:0;border:0;font-size:1.7vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-margin-choice{min-height:4.2vh;min-width:9vh;font-size:1.8vh;}
+
+/* Native-style menu typography; HUD typography stays independent. */
+#cr-loadout-panel button,#cr-loadout-panel .cr-loadout-name{font-family:inherit;font-weight:400;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-columns{display:block;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-channel{display:block;width:100%;margin:0 0 2vh;padding:0;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-slot-strip{display:flex;flex-direction:row;align-items:flex-start;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-row{display:block;flex:0 0 auto;width:auto;margin:0 1vh 0 0;padding:.5vh 0 0;border:0;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-row-heading{display:block;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-assignment{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:.4vh;margin:0;text-align:center;overflow:hidden;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-assignment-icon{display:block;margin:0 0 .4vh;flex:0 0 auto;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-name{display:block;flex:0 0 auto;word-break:normal;white-space:nowrap;font-size:1.35vh;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-controls,#cr-loadout-panel.cr-loadout-compact .cr-loadout-picker,#cr-loadout-panel.cr-loadout-compact .cr-loadout-selected{display:none;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-row-message{display:none;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-slot{font-size:1.3vh;margin:0 0 .4vh;}
+
+/* Match native action + keyboard main/alternate + controller proportions. */
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding>span{flex:1 1 auto;width:calc(100% - 68vh);min-width:0;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-binding-device{flex:0 0 22.7vh;width:22.7vh;padding:0 0 0 .46vh;}
+#cr-loadout-panel.cr-options-panel .cr-loadout-bind-button{flex:0 0 100%;width:100%;height:4.17vh;min-height:4.17vh;margin:0;border-radius:.37vh;}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings>span:first-child{flex:1 1 auto;width:calc(100% - 68vh);}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings>span:nth-child(2){flex:0 0 45.4vh;width:45.4vh;text-align:center;}
+#cr-loadout-panel.cr-options-panel .cr-options-binding-headings>span:nth-child(3){flex:0 0 22.7vh;width:22.7vh;text-align:center;}
+#cr-loadout-panel.cr-options-contact{padding-top:3.3vh;}
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-assignment:hover img,
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-assignment:focus img,
+#cr-loadout-panel.cr-loadout-compact .cr-loadout-assignment.cr-native-focused img{
+    filter:brightness(.05);
+    filter:coh-color-matrix(0.0509803922,0,0,0,0,0,0.0509803922,0,0,0,0,0,0.0509803922,0,0,0,0,0,1,0);
+}
+#cr-loadout-panel.cr-options-panel .cr-loadout-capture-cancel{display:none !important;}
+@media(max-height:800px){
+    #cr-loadout-panel.cr-loadout-compact .cr-loadout-slot{font-size:11px;}
+    #cr-loadout-panel.cr-loadout-compact .cr-loadout-name{font-size:12px;}
+}
+#cr-loadout-panel.cr-options-panel .cr-loot-minus,#cr-loadout-panel.cr-options-panel .cr-loot-plus,#cr-loadout-panel.cr-options-panel .cr-loot-value{min-height:4.2vh;min-width:8vh;font-size:1.8vh;}
