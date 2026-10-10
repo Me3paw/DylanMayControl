@@ -1,6 +1,6 @@
 # Building DylanMayControl
 
-Build either supported route from the same source tree. The default is the original-DLL proxy route; `--plugin` builds the f2g plugin. This does not build/package the game, f2g, UI assets, screenshots or game installation files, and does not deploy output.
+Build either supported route from the same source tree. The default is the original-DLL proxy route; `--plugin` builds the f2g plugin. The source includes the game's stock icons in `src/ui/weapon_icons.js` under the explicit third-party rights exclusion in `LICENSE`. The build does not copy or deploy game executables/archives, f2g binaries, screenshots or installation files.
 
 ## Requirements
 
