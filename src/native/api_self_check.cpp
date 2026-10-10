@@ -335,6 +335,7 @@ int wmain() {
     publish_state(0, ERROR_SUCCESS, &value, false, 0);
     assert(value.dwPacketNumber == 0);
     published[2]={}; menu_packets[2]=false; menu_releases[2]=0;
+    mod_bindings::capturing.store(true); // The mask is ownership-based since build101; capture owns confirm here.
     XINPUT_STATE modal{}; modal.dwPacketNumber=41;
     modal.Gamepad.wButtons=XINPUT_GAMEPAD_A; modal.Gamepad.bLeftTrigger=90;
     publish_menu_state(2,ERROR_SUCCESS,&modal,false,41,true);
@@ -343,6 +344,7 @@ int wmain() {
     publish_menu_state(2,ERROR_SUCCESS,&modal,false,41,true);
     assert(!modal.Gamepad.wButtons && modal.dwPacketNumber==42);
     modal.Gamepad.wButtons=XINPUT_GAMEPAD_A;
+    mod_bindings::capturing.store(false);
     publish_menu_state(2,ERROR_SUCCESS,&modal,false,41,false);
     assert(!modal.Gamepad.wButtons && modal.dwPacketNumber==42); // Close cannot replay a held confirm.
     publish_menu_state(2,ERROR_SUCCESS,&modal,false,42,false);
@@ -352,6 +354,21 @@ int wmain() {
     assert(modal.Gamepad.wButtons==XINPUT_GAMEPAD_A && modal.dwPacketNumber==44);
     publish_menu_state(2,ERROR_SUCCESS,&modal,false,43,false);
     assert(modal.dwPacketNumber==44); // Stable physical state keeps a stable logical packet.
+    // Root proxy route: Mod-owned navigation hides Dpad/A/left stick, as the plugin detour does.
+    const bool was_capturing=mod_bindings::capturing.exchange(false),was_owned=mod_bindings::menu_owned.exchange(true);
+    published[3]={}; menu_packets[3]=false; menu_releases[3]=0;
+    XINPUT_STATE owned{}; owned.dwPacketNumber=7;
+    const auto hold=[&]{owned.Gamepad={};owned.Gamepad.wButtons=XINPUT_GAMEPAD_DPAD_DOWN|XINPUT_GAMEPAD_RIGHT_SHOULDER;
+        owned.Gamepad.sThumbLX=21000;owned.Gamepad.sThumbLY=-21000;owned.Gamepad.sThumbRX=1234;owned.Gamepad.bLeftTrigger=255;};
+    hold(); publish_menu_state(3,ERROR_SUCCESS,&owned,false,7,true);
+    assert(owned.Gamepad.wButtons==XINPUT_GAMEPAD_RIGHT_SHOULDER && !owned.Gamepad.sThumbLX && !owned.Gamepad.sThumbLY);
+    assert(owned.Gamepad.sThumbRX==1234 && owned.Gamepad.bLeftTrigger==255); // Camera stick and lock trigger pass.
+    const DWORD masked_packet=owned.dwPacketNumber;
+    mod_bindings::menu_owned.store(false);
+    hold(); publish_menu_state(3,ERROR_SUCCESS,&owned,false,7,true);
+    assert(owned.Gamepad.sThumbLX==21000 && owned.Gamepad.sThumbLY==-21000 && owned.dwPacketNumber==masked_packet+1); // Handoff is a new packet.
+    assert(owned.Gamepad.wButtons==XINPUT_GAMEPAD_RIGHT_SHOULDER); // The held Dpad stays quarantined until released.
+    mod_bindings::capturing.store(was_capturing); mod_bindings::menu_owned.store(was_owned);
     puts("Controller overlay packet changes, held-confirm release and next gameplay press verified (test double)");
     shutdown_race_check();
     puts("ANY filtering, selected/nonselected/pass, bounded draining, capability resolutions/flags, real backend forwarding, packet continuity/renewal/connection/wrap and shutdown-interleaving verified");

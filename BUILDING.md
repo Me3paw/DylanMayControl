@@ -1,17 +1,29 @@
-# Building the v1.0.0 plugin
+# Building DylanMayControl
 
-This builds the f2g plugin DLL from the public build102 source snapshot. It does not build or package f2g, the game, game UI files, screenshots, or any game installation assets. It does not deploy the output.
+Build either supported route from the same source tree. The default is the original-DLL proxy route; `--plugin` builds the f2g plugin. This does not build/package the game, f2g, UI assets, screenshots or game installation files, and does not deploy output.
 
 ## Requirements
 
-On a Linux host, install Git; a C++20 host compiler (g++); Node.js; Python 3; and the LLVM-MinGW cross-toolchain commands x86_64-w64-mingw32-clang and x86_64-w64-mingw32-clang++. The script expects these on PATH.
+On Linux: Git, a C++20 host compiler (`g++`), Node.js, Python 3, LLVM-MinGW (`x86_64-w64-mingw32-clang` and `x86_64-w64-mingw32-clang++`) and Python package `pefile` if running export verification. The build script expects the compiler commands on PATH.
 
-## Build
+## Build the original-DLL proxy alternative
 
-From the repository root, run:
+From the repository root:
 
     ./scripts/native/build-plugin.sh
 
-The script checks out MinHook at commit 8af6b4acae5a9388fd742b56fa79ece89d96f823 under ignored .work/upstream/minhook, builds the required objects, generates the UI asset header from the included emit_ui_bootstrap.cpp, and writes .work/native-build/combatloadout.dll. The MinHook source is fetched from its upstream Git repository at build time; its separate BSD terms are included in this repository.
+This writes `.work/native-build/xinput1_4.dll`. Install this route only if you understand the root-DLL conflict and follow the optional Nexus file instructions. The proxy loads the system xinput1_4 backend and the mod's native service.
 
-Build reproducibility depends on the host compiler/toolchain versions. The source snapshot and dependency revision are pinned; the resulting PE/DLL bytes may differ between compiler versions. The published release DLL hash is recorded in README.md.
+## Build the f2g plugin
+
+    ./scripts/native/build-plugin.sh --plugin
+
+This writes `.work/native-build/combatloadout.dll`, for installation as an f2g plugin.
+
+## Optional validation helpers
+
+    ./scripts/native/build-plugin.sh --with-helpers
+
+This additionally compiles helper executables into ignored `.work/native-build/`; it does not run gameplay tests. The script checks out MinHook at commit `8af6b4acae5a9388fd742b56fa79ece89d96f823` under ignored `.work/upstream/minhook`. Its separate BSD terms are included in this repository.
+
+Build reproducibility depends on host compiler/toolchain versions. The MinHook revision and source are pinned; resulting PE/DLL bytes may differ between compiler versions. Published artifact hashes are recorded in README.md and the corresponding Nexus release files.

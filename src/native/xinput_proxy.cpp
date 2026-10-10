@@ -60,7 +60,9 @@ static void publish_menu_state(DWORD index,DWORD result,XINPUT_STATE* state,bool
                 menu_packets[index]=true;
             }
         }
-        state->Gamepad.wButtons=mod_bindings::filter_menu_buttons(state->Gamepad.wButtons,modal,menu_releases[index]);
+        // Same filter as the plugin detour: mod-owned buttons and left stick are
+        // masked before publication, so the logical packet reports the handoff.
+        controller_menu_input::filter(state->Gamepad,modal,menu_releases[index]);
     }
     if (automation_enabled || menu_packets[index]) publish_state(index,result,state,synthetic,native_packet);
 }
@@ -414,7 +416,7 @@ extern "C" DWORD WINAPI XInputGetState(DWORD index, XINPUT_STATE* state) {
     DWORD result = fn ? fn(index, &native) : ERROR_DEVICE_NOT_CONNECTED;
     DWORD native_packet = native.dwPacketNumber;
     *state = native;
-    const bool modal=(mod_bindings::capturing.load() || mod_bindings::menu_owned.load()) &&
+    const bool modal=mod_bindings::panel_open.load() &&
         loadout_key_requests::game_foreground(GetForegroundWindow());
     AcquireSRWLockExclusive(&input_lock);
     bool is_synthetic = controlled && selected == index;
