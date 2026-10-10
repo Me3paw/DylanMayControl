@@ -4,7 +4,7 @@ Build either supported route from the same source tree. The default is the origi
 
 ## Requirements
 
-On Linux: Git, a C++20 host compiler (`g++`), Node.js, Python 3, LLVM-MinGW (`x86_64-w64-mingw32-clang` and `x86_64-w64-mingw32-clang++`) and Python package `pefile` if running export verification. The build script expects the compiler commands on PATH.
+On Linux: Git, a C++20 host compiler (`g++`), Node.js, Python 3, LLVM-MinGW (`x86_64-w64-mingw32-clang` and `x86_64-w64-mingw32-clang++`) and Python package `pefile` if running separate export verification. The build script expects the compiler commands on PATH.
 
 ## Build the original-DLL proxy alternative
 
@@ -27,3 +27,13 @@ This writes `.work/native-build/combatloadout.dll`, for installation as an f2g p
 This additionally compiles helper executables into ignored `.work/native-build/`; it does not run gameplay tests. The script checks out MinHook at commit `8af6b4acae5a9388fd742b56fa79ece89d96f823` under ignored `.work/upstream/minhook`. Its separate BSD terms are included in this repository.
 
 Build reproducibility depends on host compiler/toolchain versions. The MinHook revision and source are pinned; resulting PE/DLL bytes may differ between compiler versions. Published artifact hashes are recorded in README.md and the corresponding Nexus release files.
+
+## Split persistence regression
+
+From the repository root, using the host C++20 compiler:
+
+    mkdir -p .work/native-build
+    g++ -std=c++20 -O2 -Wall -Wextra -Werror scripts/native/test_split_form_retention.cpp -o .work/native-build/test_split_form_retention
+    .work/native-build/test_split_form_retention
+
+This is a focused native-contract replay covering baseline deletion, both Split orderings, other finishers, independent timers, repeated activations and one-per-ID allocation. It is not a running-game test. Published v1.0.1 binaries retain their approved identities; rebuilding is optional.

@@ -10,6 +10,7 @@
 #include "loadout_selection_bridge.h"
 #include "loot_multiplier.h"
 #include "controller_menu_input.h"
+#include "split_form_retention.h"
 
 namespace selection_observer {
 using Commit = void (*)(uint32_t, void*, void*);
@@ -350,6 +351,9 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     matches(0x2339010,"4180783400448bc974708b02413b40087368488d048048c1e0");
                 const bool attack_turn_ready=chooser_probe &&
                     matches(attack_turn_native::kUpdateRva,attack_turn_native::kUpdatePin);
+                const bool split_ready=finisher_commit_ready && catalogue_ready &&
+                    matches(split_form_retention::kPredicateRva,split_form_retention::kPredicatePin) &&
+                    matches(0x2349936,split_form_retention::kSpawnCallPin);
                 hook_status = MH_Initialize();
 #ifdef CRMOD_PLUGIN
                 const bool menu_input_ready=hook_status==MH_OK&&controller_menu_input::prepare(input_backend);
@@ -362,6 +366,9 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+0x2339010),
                         reinterpret_cast<void*>(&finisher_binding::test_unlock_hook),&unlock_original);
                 finisher_binding::original_unlock=reinterpret_cast<finisher_binding::UnlockFn>(unlock_original);
+                if (hook_status==MH_OK && split_ready)
+                    hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+split_form_retention::kPredicateRva),
+                        reinterpret_cast<void*>(&split_form_retention::predicate),reinterpret_cast<void**>(&split_form_retention::original));
                 void* graph_original=nullptr; void* input_original=nullptr;
                 if (hook_status==MH_OK && finisher_commit_ready)
                     hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+0x235e6c0),
@@ -456,6 +463,8 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     if (hook_status == MH_OK) hook_status = MH_CreateHook(reinterpret_cast<void*>(hook.target), hook.detour, hook.original);
                 }
                 if (hook_status == MH_OK) hook_status = MH_QueueEnableHook(commit_target);
+                if (hook_status==MH_OK && split_ready)
+                    hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+split_form_retention::kPredicateRva));
                 if (hook_status==MH_OK && finisher_test_ready)
                     hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+0x2339010));
                 if (hook_status==MH_OK && catalogue_ready)
@@ -508,6 +517,11 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     if(loot_ready)for(auto rva:{0x26f3380u,0x21a19e0u,0x219eb60u})loot_ready=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+rva))==MH_OK && loot_ready;
                 }
                 if (hook_status == MH_OK) hook_status = MH_ApplyQueued();
+                split_form_retention::executable_base=game_base;
+                split_form_retention::stopping=&stopping;
+                split_form_retention::enabled.store(hook_status==MH_OK && split_ready);
+                std::fprintf(log,"{\"event\":\"split_form_retention\",\"armed\":%s,\"native_lifetime\":true}\n",
+                    split_form_retention::enabled.load()?"true":"false");
                 controller_menu_input::enabled.store(hook_status==MH_OK);
 #ifdef CRMOD_PLUGIN
                 std::fprintf(log,"{\"event\":\"controller_menu_filter\",\"armed\":%s,\"raw_sampler_uses_trampoline\":true}\n",controller_menu_input::enabled.load()?"true":"false");
