@@ -24,7 +24,7 @@ static unsigned count = 0, seen_count = 0;
 static bool started = false;
 static std::uint64_t exe_base = 0, cohtml_base = 0;
 
-static bool start(const std::atomic<bool>& stopping, bool verified) {
+static inline bool start(const std::atomic<bool>& stopping, bool verified) {
     if (!verified || stopping.load()) return false;
     AcquireSRWLockExclusive(&lock);
     bool ok = !started && !stopping.load();
@@ -40,7 +40,8 @@ static bool start(const std::atomic<bool>& stopping, bool verified) {
 
 // Only inside the live two-argument native binding call, before its original.
 // Addresses in the queue are opaque numbers. The worker never follows them.
-static void observe(void* view) {
+static inline void observe(void* view) {
+    if constexpr(!diagnostics::enabled)return;
     if (!recording.load()) return;
     DWORD error = GetLastError();
     ++attempts;
@@ -88,7 +89,7 @@ static void stop() {
     while (attempts.load()) Sleep(1);
 }
 
-static void flush(FILE* log) {
+static inline void flush(FILE* log) {
     if (!log) return;
     Record rows[kCapacity];
     AcquireSRWLockExclusive(&lock);

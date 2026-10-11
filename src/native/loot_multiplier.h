@@ -24,7 +24,7 @@ inline SRWLOCK log_lock=SRWLOCK_INIT;inline Log logs[256]{};inline unsigned log_
 inline std::atomic<unsigned> admissions{0};
 inline bool read(std::uintptr_t address,void* out,std::size_t size){return loadout_attack_probe::copy(address,out,size);}
 inline std::uint64_t hash(std::uint64_t value){auto p=static_cast<unsigned __int128>(0xde5fb9d2630458e9ull)*value;return static_cast<std::uint64_t>(p)+static_cast<std::uint64_t>(p>>64);}
-inline void record(Log row){if(admissions.fetch_add(1)>=512)return;if(TryAcquireSRWLockExclusive(&log_lock)){if(log_count<256)logs[log_count++]=row;ReleaseSRWLockExclusive(&log_lock);}}
+inline void record(Log row){if constexpr(!diagnostics::enabled)return;if(admissions.fetch_add(1)>=512)return;if(TryAcquireSRWLockExclusive(&log_lock)){if(log_count<256)logs[log_count++]=row;ReleaseSRWLockExclusive(&log_lock);}}
 inline bool lookup(void* db,std::uint32_t id,LookupResult& out){
     std::uintptr_t header[4]{};if(!read(reinterpret_cast<std::uintptr_t>(db),header,sizeof header) || !header[0] || header[3]>65535)return false;
     currency_lookup(db,&out,&id,hash(id));return out.cursor!=header[0]+header[3] && out.entry;
@@ -40,11 +40,13 @@ inline void initialize(void* columns,void* db,void* world,void* metadata){
             std::uint32_t id=0,packed=0;std::memcpy(&id,data+8,4);std::memcpy(&packed,data+0x2c,4);
             unsigned capacity=packed>>24;capacity=capacity<128?capacity*8:capacity*256-0x7c00;
             std::uintptr_t name=address+0x34;if(capacity<(packed&0xffffffu)*8ull)std::memcpy(&name,data+0x34,8);
-            Log log{};log.id=id;log.kind=0;
+            char currency_name[128]{};
             bool terminated=false;
-            for(unsigned j=0;j<127;j++){if(!read(name+j,log.name+j,1))break;if(!log.name[j]){terminated=true;break;}if(static_cast<unsigned char>(log.name[j])<32 || static_cast<unsigned char>(log.name[j])>126)break;}
+            for(unsigned j=0;j<127;j++){if(!read(name+j,currency_name+j,1))break;if(!currency_name[j]){terminated=true;break;}if(static_cast<unsigned char>(currency_name[j])<32 || static_cast<unsigned char>(currency_name[j])>126)break;}
             if(!terminated)continue;
-            if(loot_policy::eligible_name(log.name)){found[count++].id=id;log.kind=1;}record(log);
+            const bool eligible=loot_policy::eligible_name(currency_name);
+            if(eligible)found[count++].id=id;
+            if constexpr(diagnostics::enabled){Log log{};log.id=id;log.kind=eligible?1u:0u;std::memcpy(log.name,currency_name,sizeof currency_name);record(log);}
         }
     }
     SetLastError(incoming);original_init(columns,db,world,metadata);const DWORD forwarded=GetLastError();
@@ -73,18 +75,18 @@ inline void award(void* item,void* reward,void* world,void* db,void* p5,void* p6
         auto w=reinterpret_cast<std::uintptr_t>(world);
         allowed=lookup(db,values[0],currency) && read(currency.entry+8,key,16) && !std::memcmp(key,match.fact,16) && read(currency.entry+0x1c,&cap,4) && read(w+0x18,header,sizeof header) && header[0] && header[3]<=1048575;
         if(allowed){fact_lookup(reinterpret_cast<void*>(w+0x18),&fact,key,hash(key[0]^key[1]));allowed=fact.cursor!=header[0]+header[3] && fact.entry && read(fact.entry+0x28,&balance,8) && read(fact.entry+0x30,&tag,1) && tag==1 && std::isfinite(balance) && balance>=0 && balance<=INT_MAX;}
-        if(allowed){auto scaled=loot_policy::scaled_amount(static_cast<int>(values[1]),multiplier,static_cast<int>(balance),cap);Log row{};row.kind=2;row.id=values[0];row.amount=values[1];row.scaled=scaled;row.multiplier=multiplier;record(row);values[1]=static_cast<unsigned>(scaled);item=values;}
+        if(allowed){auto scaled=loot_policy::scaled_amount(static_cast<int>(values[1]),multiplier,static_cast<int>(balance),cap);CRMOD_DIAGNOSTIC(Log row{};row.kind=2;row.id=values[0];row.amount=values[1];row.scaled=scaled;row.multiplier=multiplier;record(row));values[1]=static_cast<unsigned>(scaled);item=values;}
     }
     SetLastError(incoming);original_award(item,reward,world,db,p5,p6,p7,p8,p9);
 }
 inline bool prepare(std::uintptr_t executable){
-    base=executable;currency_lookup=reinterpret_cast<Lookup>(base+0x20bfa50);fact_lookup=reinterpret_cast<Lookup>(base+0x1d9c850);
+    base=executable;currency_lookup=reinterpret_cast<Lookup>(base+0x20ec8b0);fact_lookup=reinterpret_cast<Lookup>(base+0x1dc4020);
     constexpr unsigned char init[]={0x4c,0x8b,0xdc,0x4d,0x89,0x4b,0x20};
     constexpr unsigned char collect[]={0x48,0x89,0x5c,0x24,0x08,0x48,0x89,0x6c,0x24,0x10};
     constexpr unsigned char give[]={0x40,0x53,0x57,0x41,0x56,0x48,0x83,0xec,0x50,0x44,0x8b,0x51,0x08};
     constexpr unsigned char getter[]={0x48,0x89,0x5c,0x24,0x10,0x48,0x89,0x6c,0x24,0x18,0x48,0x89,0x74,0x24,0x20,0x57};
     unsigned char actual[16]{};
-    return read(base+0x26f3380,actual,sizeof init) && !std::memcmp(actual,init,sizeof init) && read(base+0x21a19e0,actual,sizeof collect) && !std::memcmp(actual,collect,sizeof collect) && read(base+0x219eb60,actual,sizeof give) && !std::memcmp(actual,give,sizeof give) && read(base+0x20bfa50,actual,sizeof getter) && !std::memcmp(actual,getter,sizeof getter) && read(base+0x1d9c850,actual,sizeof getter) && !std::memcmp(actual,getter,sizeof getter);
+    return read(base+0x2737b00,actual,sizeof init) && !std::memcmp(actual,init,sizeof init) && read(base+0x21cf140,actual,sizeof collect) && !std::memcmp(actual,collect,sizeof collect) && read(base+0x21cc390,actual,sizeof give) && !std::memcmp(actual,give,sizeof give) && read(base+0x20ec8b0,actual,sizeof getter) && !std::memcmp(actual,getter,sizeof getter) && read(base+0x1dc4020,actual,sizeof getter) && !std::memcmp(actual,getter,sizeof getter);
 }
 inline void flush(FILE* output){if(!output)return;AcquireSRWLockExclusive(&log_lock);for(unsigned i=0;i<log_count;i++){auto& r=logs[i];for(char& c:r.name)if(c=='"'||c=='\\')c='_';std::fprintf(output,"{\"event\":\"loot_multiplier\",\"kind\":%u,\"id\":%u,\"name\":\"%s\",\"base\":%u,\"scaled\":%u,\"multiplier\":%u}\n",r.kind,r.id,r.name,r.amount,r.scaled,r.multiplier);}log_count=0;ReleaseSRWLockExclusive(&log_lock);}
 }

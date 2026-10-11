@@ -135,7 +135,7 @@ inline void producer_hook(void* columns,void* time,void* native_input) {
         proof_valid.store(active()&&loan.serial==producer_serial.load());
         ReleaseSRWLockExclusive(&proof_lock);
     }
-    if (loan.camera_seen&&!loan.supported) ++unsupported_mappings;
+    CRMOD_DIAGNOSTIC(if(loan.camera_seen&&!loan.supported)++unsupported_mappings);
     SetLastError(outgoing);
 }
 inline uint64_t mapped_hook(void* bank,uint16_t key) {
@@ -151,7 +151,7 @@ inline uint64_t mapped_hook(void* bank,uint16_t key) {
     const uint64_t result=reinterpret_cast<MappedFn>(originals[4])(bank,key);
     const DWORD outgoing=GetLastError();
     if (ours&&qualify_producer(*s)) {
-        s->camera_seen=true; ++mapped_evaluations;
+        s->camera_seen=true; CRMOD_DIAGNOSTIC(++mapped_evaluations);
         camera_mapping=s;
         SetLastError(incoming);
         const uint64_t level=reinterpret_cast<MappedFn>(originals[4])(bank,key);
@@ -178,20 +178,20 @@ inline uint8_t predicate_hook(void* descriptor,uint16_t key,void* args) {
                 const uint8_t mode=local[0x54];
                 if (mode>4) {
                     s->supported=false;
-                    unsupported_modes.fetch_or(uint32_t{1}<<(mode<31?mode:31));
+                    CRMOD_DIAGNOSTIC(unsupported_modes.fetch_or(uint32_t{1}<<(mode<31?mode:31)));
                 }
                 else if (mode>=2) {
                     // Native90: 0=current, 2=pressed, 3=released, 4=repeat.
                     // Native91 refresh mutates only cache48 and binding50/52.
                     // This plain descriptor copy retains native gate38 and IDs;
                     // the original case5 does not retain the descriptor address.
-                    local[0x54]=0; evaluated=local; ++edge_overrides;
+                    local[0x54]=0; evaluated=local; CRMOD_DIAGNOSTIC(++edge_overrides);
                 }
             } else if (kind!=1&&kind!=2&&kind!=3&&kind!=4&&kind!=10) {
                 // Preserve logical composition; do not reinterpret unknown
                 // stateful gestures or device-specific predicate tables.
                 s->supported=false;
-                unsupported_kinds.fetch_or(uint32_t{1}<<(kind<31?kind:31));
+                CRMOD_DIAGNOSTIC(unsupported_kinds.fetch_or(uint32_t{1}<<(kind<31?kind:31)));
             }
         }
     }
@@ -247,7 +247,7 @@ inline uint64_t flag_hook(void* input,uint16_t key) {
         uint8_t locked=0;
         if (combat_native::copy_checked(step_binding::env().copy,&locked,s->status,1)) {
             const uint8_t request=static_cast<uint8_t>(s->down!=(locked!=0));
-            if (static_cast<uint8_t>(result)!=request) ++transitions;
+            CRMOD_DIAGNOSTIC(if(static_cast<uint8_t>(result)!=request)++transitions);
             result=(result&~uint64_t{0xff})|request;
         }
     }
@@ -256,7 +256,7 @@ inline uint64_t flag_hook(void* input,uint16_t key) {
 inline void clear_hook(void* logic,uint64_t mask,uint8_t retain) {
     const DWORD incoming=GetLastError(); auto* s=current;
     if (s&&s->active_state&&mask==kMask&&reinterpret_cast<uintptr_t>(logic)==s->logic&&
-        !s->down&&retain&&qualify(*s)) { retain=0; ++release_cleanups; }
+        !s->down&&retain&&qualify(*s)) { retain=0; CRMOD_DIAGNOSTIC(++release_cleanups); }
     SetLastError(incoming);
     reinterpret_cast<ClearFn>(originals[2])(logic,mask,retain);
     const DWORD outgoing=GetLastError(); SetLastError(outgoing);
@@ -264,27 +264,28 @@ inline void clear_hook(void* logic,uint64_t mask,uint8_t retain) {
 struct Hook { uint32_t rva; const char* pin; void* detour; void** original; };
 inline std::array<Hook,3> hook_specs() {
     return {{
-        {0x27e5d50,"488bc44889580848896810488970184889782041564883ec60",reinterpret_cast<void*>(&active_hook),&originals[0]},
-        {0x228d190,"4883ec284c8b01498b40088078190075186639501a7306488b4010",reinterpret_cast<void*>(&flag_hook),&originals[1]},
-        {0x2295f10,"48895c2408488974241048897c241841564883ec20410fb6f0",reinterpret_cast<void*>(&clear_hook),&originals[2]}
+        {0x282d1c0,"488bc44889580848896810488970184889782041564883ec60",reinterpret_cast<void*>(&active_hook),&originals[0]},
+        {0x22c7750,"4883ec284c8b01498b40088078190075186639501a7306488b4010",reinterpret_cast<void*>(&flag_hook),&originals[1]},
+        {0x22d0540,"48895c2408488974241048897c241841564883ec20410fb6f0",reinterpret_cast<void*>(&clear_hook),&originals[2]}
     }};
 }
 inline std::array<Hook,3> mapping_hook_specs() {
     return {{
-        {0x228e680,"488bc44889501053565741544155415641574881ecc0000000",reinterpret_cast<void*>(&producer_hook),&originals[3]},
-        {0x297d860,"48895c2410574883ec30488b010fb7da488bf94885c00f8483",reinterpret_cast<void*>(&mapped_hook),&originals[4]},
-        {0x297c270,"48895c241048896c2418488974242057415641574883ec304d8bf80f",reinterpret_cast<void*>(&predicate_hook),&originals[5]}
+        {0x22c8c40,"488bc44889501053565741544155415641574881ecc0000000",reinterpret_cast<void*>(&producer_hook),&originals[3]},
+        {0x29c8390,"48895c2410574883ec30488b010fb7da488bf94885c00f8483",reinterpret_cast<void*>(&mapped_hook),&originals[4]},
+        {0x29c6da0,"48895c241048896c2418488974242057415641574883ec304d8bf80f",reinterpret_cast<void*>(&predicate_hook),&originals[5]}
     }};
 }
 inline bool arm(uint64_t base,bool loaded_contracts_and_module_pin_verified,const std::atomic<bool>& stop) {
     if (!base||!step_binding::env().copy||step_binding::env().base!=base||!loaded_contracts_and_module_pin_verified||enabled.load()||stopped.load()||stop.load()) return false;
     for (auto* original:originals) if (!original) return false;
-    action_address=combat_native::at(base,0,0,0x5ceb500);
+    action_address=combat_native::at(base,0,0,0x5ce6610);
     action.store(0xffff); stopping=&stop; enabled.store(true);
     if (stop.load()) enabled.store(false); return enabled.load();
 }
 inline void stop() { stopped.store(true); enabled.store(false); proof_valid.store(false); }
 inline void flush(FILE* file) {
+    if constexpr(!diagnostics::enabled)return;
     if (!file) return;
     const auto a=transitions.exchange(0),b=release_cleanups.exchange(0);
     if (a||b) std::fprintf(file,"{\"event\":\"held_lock_native\",\"action\":%u,\"transitions\":%llu,\"release_cleanups\":%llu,\"native_target_selection\":true,\"direct_locked_byte_writes\":false}\n",static_cast<unsigned>(action.load()),static_cast<unsigned long long>(a),static_cast<unsigned long long>(b));

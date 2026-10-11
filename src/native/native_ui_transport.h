@@ -191,7 +191,7 @@ inline std::string submit(std::string_view text,std::uint64_t generation) {
     const auto receipt=native_ui::sdk::mailbox.enqueue(generation,command);
     if (!receipt.ticket) return admission(generation,client,command.world_epoch,0,false,loadout_control::Result::Rejected);
     *available={}; available->used=true; available->client=client; available->epoch=command.world_epoch;
-    available->receipt=receipt; available->event=command; last_client=client; ++admissions;
+    available->receipt=receipt; available->event=command; last_client=client; CRMOD_DIAGNOSTIC(++admissions);
     return admission(generation,client,command.world_epoch,receipt.ticket,true,loadout_control::Result::Waiting);
 }
 inline std::string reply(const std::uint64_t (&v)[4],std::uint64_t generation) {
@@ -199,7 +199,7 @@ inline std::string reply(const std::uint64_t (&v)[4],std::uint64_t generation) {
     const bool matches=v[0]==generation && entry && entry->epoch==v[3] && (!v[2] || entry->receipt.ticket==v[2]);
     const auto ticket=matches ? entry->receipt.ticket : 0;
     if (matches && !entry->completed && native_ui::sdk::mailbox.take_reply(entry->receipt,entry->result)) {
-        entry->completed=true; ++completions;
+        entry->completed=true; CRMOD_DIAGNOSTIC(++completions);
     }
     std::string out="{\"kind\":\"reply\",\"view_generation\":"+u64(generation)+",\"client_ticket\":"+u64(v[1])+
         ",\"native_ticket\":"+u64(ticket)+",\"world_epoch\":"+u64(v[3])+",\"state\":"+
@@ -236,12 +236,12 @@ inline std::string bindings_json(std::uint64_t generation,bool accepted=true,boo
         ",\"sample_sequence\":"+u64(sample)+",\"pad_presses\":"+events+",\"key_presses\":"+key_events+",\"capture_releasing\":"+boolean(mod_bindings::capture_releasing.load())+",\"pad_dropped\":"+decimal(mod_bindings::pad_dropped.load())+"}";
 }
 inline void emit(void* context,std::uint64_t generation,const std::string& json) {
-    if (!live(generation) || json.size()>65535) { ++failures; return; }
+    if (!live(generation) || json.size()>65535) { CRMOD_DIAGNOSTIC(++failures); return; }
     const auto base=native_ui::sdk::guard.cohtml_base;
     auto* binder=reinterpret_cast<native_ui_echo::Begin>(base+0x5f15c8)(context);
-    if (!binder || !live(generation) || !native_ui_echo::binder_shape(binder)) { ++failures; return; }
+    if (!binder || !live(generation) || !native_ui_echo::binder_shape(binder)) { CRMOD_DIAGNOSTIC(++failures); return; }
     reinterpret_cast<native_ui_echo::Write>(base+0x5ebf3c)(binder,json.c_str());
-    if (!live(generation) || reinterpret_cast<native_ui_echo::Error>(base+0x30669c)(context)) { ++failures; return; }
+    if (!live(generation) || reinterpret_cast<native_ui_echo::Error>(base+0x30669c)(context)) { CRMOD_DIAGNOSTIC(++failures); return; }
     reinterpret_cast<native_ui_echo::End>(base+0x5f1770)(context);
 }
 inline void invoke(native_ui_invoke_probe::Handler* handler,void* context) {
@@ -254,12 +254,12 @@ inline void invoke(native_ui_invoke_probe::Handler* handler,void* context) {
         opening_verified.store(false); opening_allowed.store(false); close_requested.store(false);
         mod_bindings::editing.store(false);
         mod_bindings::set_panel_open(false);
-        native_ui_echo::stage.store(0);
+        CRMOD_DIAGNOSTIC(native_ui_echo::stage.store(0));
     }
     char owned[513]{}; std::size_t size=0;
-    if (!native_ui_echo::read_one(context,generation,owned,size)) { ++failures; return; }
+    if (!native_ui_echo::read_one(context,generation,owned,size)) { CRMOD_DIAGNOSTIC(++failures); return; }
     const std::string_view input(owned,size);
-    if (input==native_ui_echo::request || input==native_ui_echo::confirmation) {
+    if (diagnostics::enabled && (input==native_ui_echo::request || input==native_ui_echo::confirmation)) {
         native_ui_echo::invoke_owned(handler,context,owned,size); return;
     }
     std::string output;
@@ -267,19 +267,19 @@ inline void invoke(native_ui_invoke_probe::Handler* handler,void* context) {
     std::uint64_t binding_values[7]{};
     std::uint64_t navigation_values[6]{};
     if (input=="cr.host.hello.v1") {
-        hello_seen.store(true);
+        CRMOD_DIAGNOSTIC(hello_seen.store(true));
         output="{\"kind\":\"hello\",\"protocol\":1,\"view_generation\":"+u64(generation)+"}";
     } else if (rpc(input,"cr.host.model.v1:",values,1) && values[0]==generation) {
-        model_seen.store(true); output=model_json(generation);
+        CRMOD_DIAGNOSTIC(model_seen.store(true)); output=model_json(generation);
     }
-    else if(rpc(input,"cr.host.surface.v1:",values,4) && values[0]==generation && values[1]<=4 && values[2]<=INT32_MAX && values[3]<=192) {
+    else if(diagnostics::enabled && rpc(input,"cr.host.surface.v1:",values,4) && values[0]==generation && values[1]<=4 && values[2]<=INT32_MAX && values[3]<=192) {
         if(surface_total<256 && TryAcquireSRWLockExclusive(&image_probe_lock)) {
             if(surface_count<surface_probes.size()){surface_probes[surface_count++]={static_cast<uint32_t>(GetTickCount64()),static_cast<uint32_t>(values[1]),static_cast<uint32_t>(values[2]),static_cast<uint32_t>(values[3])};++surface_total;}
             ReleaseSRWLockExclusive(&image_probe_lock);
         }
         output="{\"kind\":\"surface_probe\",\"accepted\":true}";
     }
-    else if(input.substr(0,17)=="cr.host.image.v1:") {
+    else if(diagnostics::enabled && input.substr(0,17)=="cr.host.image.v1:") {
         std::size_t pos=17;std::uint64_t fields[5]{};bool valid=true;
         for(unsigned i=0;i<5 && valid;++i) valid=read_decimal(input,pos,fields[i]) && literal(input,pos,":");
         const auto uri=input.substr(pos);
@@ -327,7 +327,7 @@ inline void invoke(native_ui_invoke_probe::Handler* handler,void* context) {
         output=bindings_json(generation,accepted);
     }
     else if ((rpc(input,"cr.host.navigation.v1:",values,3) || rpc(input,"cr.host.navigation.v1:",values,2)) && values[0]==generation && values[1]<=1 && values[2]<=2) {mod_bindings::menu_kind.store(static_cast<unsigned>(values[2]));mod_bindings::menu_owned.store(values[1]!=0 && mod_bindings::panel_open.load());output=bindings_json(generation);}
-    else if(rpc(input,"cr.host.navprobe.v1:",navigation_values,6) && navigation_values[0]==generation && navigation_values[1]<=2 && navigation_values[2]<=INT32_MAX && navigation_values[3]<=0x3ffff && navigation_values[4]<=1 && navigation_values[5]<=1){
+    else if(diagnostics::enabled && rpc(input,"cr.host.navprobe.v1:",navigation_values,6) && navigation_values[0]==generation && navigation_values[1]<=2 && navigation_values[2]<=INT32_MAX && navigation_values[3]<=0x3ffff && navigation_values[4]<=1 && navigation_values[5]<=1){
         if(navigation_total<256 && TryAcquireSRWLockExclusive(&image_probe_lock)){
             if(navigation_count<navigation_probes.size()){
                 navigation_probes[navigation_count++]={static_cast<uint32_t>(GetTickCount64()),static_cast<uint32_t>(navigation_values[1]),static_cast<uint32_t>(navigation_values[2]),static_cast<uint32_t>(navigation_values[3]),navigation_values[4]!=0,navigation_values[5]!=0};++navigation_total;
@@ -368,6 +368,7 @@ inline void set_native_opening(bool allowed,bool contract_verified) {
 }
 inline void stop() { enabled.store(false); opening_allowed.store(false); mod_bindings::editing.store(false); mod_bindings::menu_active.store(false); mod_bindings::set_panel_open(false); }
 inline void flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return;
     if (!log) return;
     if(TryAcquireSRWLockExclusive(&image_probe_lock)) {
         for(unsigned i=0;i<image_probe_count;++i) {

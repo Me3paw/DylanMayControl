@@ -23,7 +23,7 @@ using combat_native::qword;
 using LockFn = void (*)(void**, void*, void*);
 using QpcFn = uint64_t (*)();
 
-constexpr uint32_t kRvaLockOn = 0x27e6cb0;
+constexpr uint32_t kRvaLockOn = 0x282e120;
 constexpr size_t kRing = 256; constexpr uint32_t kBudget = 16384, kHeartbeatMs = 1000;
 enum Owner : uint8_t { kOwnerUnknown = 0, kOwnerVerified = 1, kOwnerOther = 2 };
 
@@ -65,8 +65,9 @@ inline uint64_t signature(const Rec& r) {
 }
 // Capture after the original returned. Never throws, never blocks, restores nothing itself (the detour restores LastError).
 inline void observe(void** cols) {
+    if constexpr(!diagnostics::enabled)return;
     State& s = st(); auto& e = step_binding::env(); auto& b = combat_native::binding();
-    if (!e.copy) return;
+    if (!e.copy || s.pushed.load(std::memory_order_relaxed)>=kBudget) return;
     s.calls.fetch_add(1, std::memory_order_relaxed);
     uint8_t c[combat_native::cols::kLockOnSize];
     if (!copy_checked(e.copy, c, reinterpret_cast<uintptr_t>(cols), sizeof c)) { s.invalid.fetch_add(1, std::memory_order_relaxed); return; }
@@ -129,7 +130,7 @@ inline void lockon_detour(void** cols, void* ctx, void* dt) {
       if (b.set_last_error) b.set_last_error(incoming);
       orig(cols, ctx, dt);
       forwarded = b.get_last_error ? b.get_last_error() : 0; }
-    if (st().pins_ok) observe(cols);
+    if constexpr(diagnostics::enabled)if(st().pins_ok)observe(cols);
     if (b.set_last_error) b.set_last_error(forwarded);
 }
 inline size_t hex_to(const uint8_t* p, size_t n, char* dst) { static const char d[] = "0123456789abcdef"; for (size_t i = 0; i < n; ++i) { dst[2 * i] = d[p[i] >> 4]; dst[2 * i + 1] = d[p[i] & 15]; } return 2 * n; }

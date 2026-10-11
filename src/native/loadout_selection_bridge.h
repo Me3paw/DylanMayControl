@@ -62,6 +62,7 @@ inline unsigned log_count=0;
 inline std::atomic<std::uint64_t> logs_dropped{0};
 inline void record(LogKind kind,std::uint32_t id,std::uint64_t ticket,std::uint8_t category,unsigned outcome=0,
                    loadout_control::Channel channel=loadout_control::Channel::Primary) {
+    if constexpr(!diagnostics::enabled)return;
     if (!TryAcquireSRWLockExclusive(&log_lock)) { ++logs_dropped; return; }
     if (log_count==log_queue.size()) ++logs_dropped;
     else {
@@ -71,6 +72,7 @@ inline void record(LogKind kind,std::uint32_t id,std::uint64_t ticket,std::uint8
     ReleaseSRWLockExclusive(&log_lock);
 }
 inline void record_wait(const loadout_player_catalogue::Catalogue& source,const Journal& j) {
+    if constexpr(!diagnostics::enabled)return;
     if (j.category>=2) return;
     std::uint16_t flags=0;
     for (std::size_t i=0;i<source.count;++i) if (source.items[i].id==j.id) flags=source.items[i].raw_flags;
@@ -91,6 +93,7 @@ inline void record_wait(const loadout_player_catalogue::Catalogue& source,const 
 inline std::array<loadout_actor_resolver::Diagnostic,32> actor_failures{};
 inline unsigned actor_failure_count=0;
 inline void record_actor_failure(const loadout_actor_resolver::Diagnostic& d) {
+    if constexpr(!diagnostics::enabled)return;
     const DWORD saved=GetLastError();
     if (!TryAcquireSRWLockExclusive(&log_lock)) { SetLastError(saved); return; }
     bool seen=false;
@@ -164,7 +167,7 @@ inline loadout_control::Submission submit(void* context,loadout_control::Channel
     const auto result=loadout_native_selection::submit_current(id,&weapon_before_commit,current_frame,source.loadout[category],true);
     if (result.outcome==loadout_native_selection::Outcome::Submitted || result.outcome==loadout_native_selection::Outcome::AlreadySelected) {
         journal={true,owner,id,item->category,ticket,lifetime,token,lua_arena,
-                 channel,source.loadout[1u-category],true}; ++issued;
+                 channel,source.loadout[1u-category],true}; CRMOD_DIAGNOSTIC(++issued);
         record(LogKind::Submitted,id,ticket,item->category,0,channel); return loadout_control::Submission::Submitted;
     }
     loadout_lua_activation::cancel(token);
@@ -229,45 +232,45 @@ inline void after_original() {
     } menu_guard;
     loadout_player_catalogue::Published previous{};
     const auto generation=native_ui::sdk::generation.load();
-    if (!loadout_player_catalogue::copy_published(generation,previous)) { stage.store(Stage::NoCatalogue); return; }
+    if (!loadout_player_catalogue::copy_published(generation,previous)) { CRMOD_DIAGNOSTIC(stage.store(Stage::NoCatalogue)); return; }
     const auto arguments=loadout_selection_scope::capture(loan->outer,loan->system,&loadout_attack_probe::copy);
-    sampled_world.store(previous.catalogue.world);
-    sampled_outer_word.store(arguments.outer_first_word);
-    sampled_input_a0.store(arguments.input_world_a0); sampled_input_268.store(arguments.input_world_268);
-    sampled_ui_stacks.store(arguments.arguments[4]);
+    CRMOD_DIAGNOSTIC(sampled_world.store(previous.catalogue.world));
+    CRMOD_DIAGNOSTIC(sampled_outer_word.store(arguments.outer_first_word));
+    CRMOD_DIAGNOSTIC(sampled_input_a0.store(arguments.input_world_a0)); CRMOD_DIAGNOSTIC(sampled_input_268.store(arguments.input_world_268));
+    CRMOD_DIAGNOSTIC(sampled_ui_stacks.store(arguments.arguments[4]));
     if (!(arguments.copied&loadout_selection_scope::kArguments) || arguments.arguments[1]!=previous.catalogue.graph_key ||
         !arguments.arguments[2] || !previous.catalogue.ui_stacks_key ||
         arguments.arguments[4]!=previous.catalogue.ui_stacks_key) {
-        stage.store(Stage::ScopeMismatch); ++invalid; return;
+        CRMOD_DIAGNOSTIC(stage.store(Stage::ScopeMismatch)); CRMOD_DIAGNOSTIC(++invalid); return;
     }
     Frame frame{}; frame.loan=loan; frame.call=loan->call;
     frame.argument_array=arguments.argument_array; frame.resources=arguments.arguments;
     loadout_actor_resolver::Diagnostic diagnostic{};
-    if (!loadout_actor_resolver::resolve(static_cast<std::uintptr_t>(previous.catalogue.world),previous.catalogue.actor,frame.rows,&diagnostic)) {
+    if (!loadout_actor_resolver::resolve(static_cast<std::uintptr_t>(previous.catalogue.world),previous.catalogue.actor,frame.rows,diagnostics::enabled?&diagnostic:nullptr)) {
         record_actor_failure(diagnostic);
-        stage.store(Stage::ActorUnavailable); ++invalid; return;
+        CRMOD_DIAGNOSTIC(stage.store(Stage::ActorUnavailable)); CRMOD_DIAGNOSTIC(++invalid); return;
     }
     const auto& rows=frame.rows;
     std::uint64_t columns[5]{rows.loadout_base,rows.cfg_base,rows.mud_base,rows.location.chunk,rows.location.row};
     loadout_player_catalogue::Catalogue source{};
     if (!loadout_player_catalogue::capture(static_cast<std::uintptr_t>(rows.location.world),
         reinterpret_cast<std::uintptr_t>(columns),static_cast<std::uintptr_t>(arguments.arguments[1]),source) ||
-        source.actor!=rows.location.actor || !loadout_actor_resolver::current(rows)) { stage.store(Stage::CatalogueUnavailable); ++invalid; return; }
+        source.actor!=rows.location.actor || !loadout_actor_resolver::current(rows)) { CRMOD_DIAGNOSTIC(stage.store(Stage::CatalogueUnavailable)); CRMOD_DIAGNOSTIC(++invalid); return; }
     source.ui_stacks_key=arguments.arguments[4];
     if (source.world!=previous.catalogue.world || source.actor!=previous.catalogue.actor ||
         source.graph_key!=previous.catalogue.graph_key ||
         source.ui_stacks_key!=previous.catalogue.ui_stacks_key || !live(frame)) {
-        stage.store(Stage::SourceChanged); ++invalid; return;
+        CRMOD_DIAGNOSTIC(stage.store(Stage::SourceChanged)); CRMOD_DIAGNOSTIC(++invalid); return;
     }
     if (observe_menu) observe_menu(source.ui_stacks_key);
     menu_guard.observed=true;
-    if (!TryAcquireSRWLockExclusive(&loadout_player_catalogue::state_lock)) { stage.store(Stage::Busy); return; }
+    if (!TryAcquireSRWLockExclusive(&loadout_player_catalogue::state_lock)) { CRMOD_DIAGNOSTIC(stage.store(Stage::Busy)); return; }
     struct Unlock { ~Unlock() { ReleaseSRWLockExclusive(&loadout_player_catalogue::state_lock); } } unlock;
-    if (!enabled.load() || !live(frame)) { stage.store(Stage::SourceChanged); return; }
+    if (!enabled.load() || !live(frame)) { CRMOD_DIAGNOSTIC(stage.store(Stage::SourceChanged)); return; }
     const Owner next=identity(source);
     if (!same(owner,next)) {
         ready=false;
-        if (loadout_player_catalogue::control.has_in_flight() || lifetime==UINT64_MAX) { stage.store(Stage::OwnerFrozen); return; }
+        if (loadout_player_catalogue::control.has_in_flight() || lifetime==UINT64_MAX) { CRMOD_DIAGNOSTIC(stage.store(Stage::OwnerFrozen)); return; }
         owner=next; ++lifetime;
     }
     if (!loadout_player_catalogue::same_source(source,loadout_player_catalogue::published.catalogue)) {
@@ -282,8 +285,8 @@ inline void after_original() {
     
     const bool queued=outcomes[0]==loadout_control::Result::Waiting ||
                       outcomes[1]==loadout_control::Result::Waiting;
-    stage.store(queued ? Stage::QueuedWaiting : Stage::Ready);
-    if (queued) ++waiting;
+    CRMOD_DIAGNOSTIC(stage.store(queued ? Stage::QueuedWaiting : Stage::Ready));
+    if (queued) CRMOD_DIAGNOSTIC(++waiting);
     std::array<loadout_control::CatalogueItem,64> options{};
     std::size_t count=0; bool incomplete=source.incomplete;
     for (std::size_t i=0;i<source.count;++i) for (unsigned channel=0;channel<2;++channel) {
@@ -301,7 +304,7 @@ inline bool arm() {
         !loadout_selection_scope::active() || enabled.load()) return false;
     enabled.store(true); return true;
 }
-inline void stop() { enabled.store(false); stage.store(Stage::Off); }
+inline void stop() { enabled.store(false); CRMOD_DIAGNOSTIC(stage.store(Stage::Off)); }
 inline void flush(FILE* log) {
     if (!log) return;
     static unsigned previous_stage=UINT32_MAX;

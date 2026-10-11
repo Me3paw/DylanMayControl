@@ -19,12 +19,8 @@ inline std::uintptr_t exe_base=0;
 inline Getter test_tree=nullptr,test_node=nullptr;
 inline bool (*test_pins)()=nullptr;
 #endif
-inline constexpr unsigned char tree_pin[25]={
-    0x48,0x8b,0x02,0x8b,0x52,0x08,0x48,0x8d,0x14,0x92,0x48,0xc1,0xe2,0x04,
-    0x48,0x03,0xd0,0x48,0x3b,0xc2,0x74,0x0e,0x44,0x39,0x00};
-inline constexpr unsigned char node_pin[25]={
-    0x48,0x8b,0x42,0x18,0x4c,0x8b,0xd1,0x48,0x8b,0x00,0x80,0x78,0x19,0x00,
-    0x0f,0x85,0x81,0x00,0x00,0x00,0x4c,0x8b,0x5a,0x08,0x0f};
+inline constexpr unsigned char tree_pin[25]={0x48,0x8b,0x02,0x8b,0x52,0x08,0x48,0x8d,0x14,0x92,0x48,0xc1,0xe2,0x04,0x48,0x03,0xd0,0x48,0x3b,0xc2,0x74,0x0e,0x44,0x39,0x00};
+inline constexpr unsigned char node_pin[25]={0x48,0x8b,0x42,0x18,0x4c,0x8b,0xd1,0x48,0x8b,0x00,0x80,0x78,0x19,0x00,0x0f,0x85,0x81,0x00,0x00,0x00,0x4c,0x8b,0x5a,0x08,0x0f};
 inline bool match(std::uintptr_t rva,const unsigned char (&pin)[25]) {
     unsigned char bytes[25]{};
     return exe_base && loadout_attack_probe::copy(exe_base+rva,bytes,sizeof(bytes)) &&
@@ -34,7 +30,7 @@ inline bool pins_match() {
 #ifdef CRMOD_API_SELF_CHECK
     if (test_pins) return test_pins();
 #endif
-    return match(0x1dda190,tree_pin) && match(0x1dda220,node_pin);
+    return match(0x1e019a0,tree_pin) && match(0x1e01a30,node_pin);
 }
 inline bool readable_span(std::uintptr_t address,std::uint64_t size) {
     std::uintptr_t last=0;
@@ -88,7 +84,7 @@ inline void observe(loadout_selection_scope::Record& record) {
     }
     Lookup tree{};
     record.tree_called=true;
-    auto get_tree=reinterpret_cast<Getter>(exe_base+0x1dda190);
+    auto get_tree=reinterpret_cast<Getter>(exe_base+0x1e019a0);
 #ifdef CRMOD_API_SELF_CHECK
     if (test_tree) get_tree=test_tree;
 #endif
@@ -111,7 +107,7 @@ inline void observe(loadout_selection_scope::Record& record) {
     }
     if (!node_count) { record.lookup_status=EmptyNodes; return; }
     if (node_count>2048 || !readable_span(static_cast<std::uintptr_t>(nodes),
-            static_cast<std::uint64_t>(node_count)*0x268) ||
+            static_cast<std::uint64_t>(node_count)*0x278) ||
         !loadout_attack_probe::add(tree.pointer,0x18,address) || !loadout_attack_probe::copy(address,&head,sizeof(head)) ||
         !readable_span(static_cast<std::uintptr_t>(head),0x28) ||
         !loadout_attack_probe::copy(static_cast<std::uintptr_t>(head),&first,sizeof(first)) ||
@@ -120,7 +116,7 @@ inline void observe(loadout_selection_scope::Record& record) {
     }
     Lookup node{};
     record.node_called=true;
-    auto get_node=reinterpret_cast<Getter>(exe_base+0x1dda220);
+    auto get_node=reinterpret_cast<Getter>(exe_base+0x1e01a30);
 #ifdef CRMOD_API_SELF_CHECK
     if (test_node) get_node=test_node;
 #endif

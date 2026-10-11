@@ -54,7 +54,7 @@ inline loadout_control::Result pending_result=loadout_control::Result::Unbound;
 inline bool active() { return enabled.load() && shared_stopping && !shared_stopping->load(); }
 inline bool node_pin_matches() {
     unsigned char bytes[25]{};
-    return exe_base && loadout_attack_probe::copy(exe_base+0x1dda220,bytes,sizeof(bytes)) &&
+    return exe_base && loadout_attack_probe::copy(exe_base+0x1e01a30,bytes,sizeof(bytes)) &&
         std::memcmp(bytes,loadout_lookup_probe::node_pin,sizeof(bytes))==0;
 }
 inline bool copy_name(std::uintptr_t definition,char (&out)[256]) {
@@ -135,12 +135,12 @@ inline bool capture(std::uintptr_t world,std::uintptr_t columns,std::uintptr_t g
         node_count>2048) return false;
     result.definitions_key=definitions;
     if (node_count && (!loadout_lookup_probe::readable_span(static_cast<std::uintptr_t>(nodes),
-            static_cast<std::uint64_t>(node_count)*0x268) ||
+            static_cast<std::uint64_t>(node_count)*0x278) ||
         !loadout_attack_probe::add(tree,0x18,address) || !loadout_attack_probe::copy(address,&head,sizeof(head)) ||
         !loadout_lookup_probe::readable_span(static_cast<std::uintptr_t>(head),0x28) ||
         !loadout_attack_probe::copy(static_cast<std::uintptr_t>(head),&first,sizeof(first)) ||
         !loadout_lookup_probe::readable_span(static_cast<std::uintptr_t>(first),0x28))) return false;
-    const auto get_node=reinterpret_cast<loadout_lookup_probe::Getter>(exe_base+0x1dda220);
+    const auto get_node=reinterpret_cast<loadout_lookup_probe::Getter>(exe_base+0x1e01a30);
     const auto limit=definition_count<64 ? definition_count : 64u;
     result.incomplete=definition_count>limit;
     for (unsigned i=0;i<limit;++i) {
@@ -204,7 +204,7 @@ inline bool same_source(const Catalogue& a,const Catalogue& b) {
 }
 inline void configure_current(Catalogue& source) {
     if (!active() || !source.valid) return;
-    if (!TryAcquireSRWLockExclusive(&state_lock)) { ++dropped; return; }
+    if (!TryAcquireSRWLockExclusive(&state_lock)) { CRMOD_DIAGNOSTIC(++dropped); return; }
     struct Unlock { ~Unlock() { ReleaseSRWLockExclusive(&state_lock); } } unlock;
     if (!active()) return;
     if(!slots_restored){if(!control.restore_assignments(mod_bindings::snapshot().loadout))return;slots_restored=true;}
@@ -272,12 +272,12 @@ inline void body(void* columns,void* state,void* stacks,void* facts,void* graph,
                 reinterpret_cast<std::uintptr_t>(graph),source)) {
             source.ui_stacks_key=reinterpret_cast<std::uintptr_t>(stacks);
             if (!source.ui_stacks_key) {
-                ++invalid; invalidate_published();
+                CRMOD_DIAGNOSTIC(++invalid); invalidate_published();
                 SetLastError(forwarded); return;
             }
             observed_player_actor.store(source.actor);
-            ++captured; configure_current(source);
-        } else { ++invalid; invalidate_published(); }
+            CRMOD_DIAGNOSTIC(++captured); configure_current(source);
+        } else { CRMOD_DIAGNOSTIC(++invalid); invalidate_published(); }
     }
     SetLastError(forwarded);
 }

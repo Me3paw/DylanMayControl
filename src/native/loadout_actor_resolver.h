@@ -127,7 +127,7 @@ inline bool resolve(std::uintptr_t world,std::uint64_t actor,Rows& out,Diagnosti
     if (!column(0x692a9998,0x10,true,result.loadout_base,unused_row) || !column(0xfaf95524,0xa0,true,result.cfg_base,unused_row) ||
         !column(0x760edfc8,8,true,result.mud_base,unused_row) || !column(0x3bfcf661,0x48,true,unused_base,result.combo) ||
         !column(0x9988f341,0x810,true,unused_base,result.logic) || !column(0x546690f3,0xb0,false,unused_base,result.attack) ||
-        !column(0x7703cd01,0xc,false,unused_base,result.execution) || !current(result,&d)) return false;
+        !column(0x7703cd01,0x10,false,unused_base,result.execution) || !current(result,&d)) return false;
     d.reason=Reason::None; d.hash=0; out=result; return true;
 }
 struct Idle {

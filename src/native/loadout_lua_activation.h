@@ -181,6 +181,7 @@ inline std::array<Log,64> logs{};
 inline unsigned log_count=0,logged=0;
 inline std::atomic<std::uint64_t> dropped{0};
 inline void record(Log row) {
+    if constexpr(!diagnostics::enabled)return;
     if (!TryAcquireSRWLockExclusive(&log_lock)) { ++dropped; return; }
     if (logged<1024) {
         if (log_count==logs.size()) ++dropped;
@@ -192,14 +193,14 @@ inline void record(Log row) {
 inline void consumer_hook(std::uintptr_t a,std::uintptr_t b,std::uintptr_t c,std::uintptr_t d,std::uintptr_t e,std::uintptr_t g,std::uintptr_t h) {
     const DWORD incoming=GetLastError(); Frame f{}; Frame* previous=current_frame; bool entered=false;
     if (active()) {
-        ++consumer_calls;
+        CRMOD_DIAGNOSTIC(++consumer_calls);
         std::uint64_t L=0,R=0,ctx=0,W=0;
         if (field(a,8,L) && L && field(b,8,R) && R && field(static_cast<std::uintptr_t>(L),0x78,ctx) &&
             ctx && loadout_actor_resolver::copy(static_cast<std::uintptr_t>(ctx),&W,8) && W) {
             f.state=a; f.events=b; f.registry=R; f.L=L; f.world=W;
             f.actor=loadout_player_catalogue::observed_player_actor.load(); current_frame=&f; entered=true;
-            ++consumer_frames; if (live(f)) ++world_calls;
-            last_world.store(W); last_events.store(b); last_registry.store(R);
+            CRMOD_DIAGNOSTIC(++consumer_frames; if (live(f)) ++world_calls;
+                last_world.store(W); last_events.store(b); last_registry.store(R));
         }
     }
     SetLastError(incoming); reinterpret_cast<Consumer>(originals[0])(a,b,c,d,e,g,h);
@@ -211,9 +212,9 @@ inline std::uint32_t lookup_hook(std::uintptr_t R,std::uint64_t key) {
     if (f && !f->in_pcall && R==f->registry && live(*f)) {
         ++f->serial; f->chain={}; f->pending={}; f->current_valid=false; if (key==kEvent) build_chain(*f,result);
         if (key==kEvent) {
-            ++event_lookups;
+            CRMOD_DIAGNOSTIC(++event_lookups);
             if (result==UINT32_MAX) {
-                ++missing_handlers;
+                CRMOD_DIAGNOSTIC(++missing_handlers);
                 if (TryAcquireSRWLockExclusive(&watch_lock)) {
                     if (watch.valid && watch.world==f->world && watch.events==f->events && watch.actor==f->actor)
                         watch.notification_missing=true;
@@ -244,7 +245,7 @@ inline std::uintptr_t getter_hook(std::uintptr_t R,std::uint32_t index) {
 inline int decoder_hook(std::uintptr_t arena,std::uintptr_t L,std::uint32_t packed) {
     const DWORD incoming=GetLastError(); auto* f=current_frame; Argument value{}; std::uint64_t serial=0;
     if (f && !f->in_pcall && f->current_valid && f->current.record.reference) { serial=f->serial; value=argument(*f,arena,L,packed); }
-    if (serial) { if (value.valid) ++decoded_arguments; else ++decode_rejections; }
+    CRMOD_DIAGNOSTIC(if(serial){if(value.valid)++decoded_arguments;else++decode_rejections;});
     SetLastError(incoming); const int result=reinterpret_cast<Decoder>(originals[3])(arena,L,packed); const DWORD outgoing=GetLastError();
     if (f && current_frame==f && serial==f->serial && value.valid && result==1 && live(*f)) {
         auto& chain=f->chain;
@@ -256,35 +257,45 @@ inline int decoder_hook(std::uintptr_t arena,std::uintptr_t L,std::uint32_t pack
     SetLastError(outgoing); return result;
 }
 inline int pcall_hook(std::uintptr_t L,int nargs,int nresults,int errfunc) {
-    const DWORD incoming=GetLastError(); auto* f=current_frame; Pending pending{}; Log row{}; bool captured=false;
+    const DWORD incoming=GetLastError(); auto* f=current_frame; Pending pending{}; bool captured=false;std::uint64_t token=0;
+#if CRMOD_DIAGNOSTICS
+    Log row{};
+#endif
     if (f && !f->in_pcall && f->pending.valid) {
         pending=f->pending; f->pending={}; captured=L==f->L && nargs==1 && nresults==0 && errfunc==1 && live(*f);
         if (captured) {
-            row.world=f->world; row.actor=f->actor; row.events=f->events; row.token=f->chain.watch_token;
+            token=f->chain.watch_token;
+#if CRMOD_DIAGNOSTICS
+            row.world=f->world; row.actor=f->actor; row.events=f->events; row.token=token;
             row.callback=pending.entry; row.id=pending.id; row.packed=pending.packed; row.matched=pending.matched;
             loadout_actor_resolver::Location owner{};
-            row.callback_owner_valid=loadout_actor_resolver::locate(f->world,pending.entry.record.owner,owner); f->in_pcall=true;
+            row.callback_owner_valid=loadout_actor_resolver::locate(f->world,pending.entry.record.owner,owner);
+#endif
+            f->in_pcall=true;
         } else f->chain.valid=false;
     }
     SetLastError(incoming); const int result=reinterpret_cast<Pcall>(originals[4])(L,nargs,nresults,errfunc); const DWORD outgoing=GetLastError();
     if (captured && current_frame==f) {
-        ++protected_calls;
-        f->in_pcall=false; row.result=result;
-        if (result!=0 && pending.matched) fail(*f,row.token);
+        CRMOD_DIAGNOSTIC(++protected_calls);
+        f->in_pcall=false;
+        if (result!=0 && pending.matched) fail(*f,token);
         if (f->serial!=pending.serial || !pending.matched || result!=0 || !live(*f)) f->chain.valid=false;
         else ++f->chain.succeeded;
-        record(row); finish_chain(*f);
+#if CRMOD_DIAGNOSTICS
+        row.result=result;record(row);
+#endif
+        finish_chain(*f);
     }
     SetLastError(outgoing); return result;
 }
 struct Hook { std::uint32_t rva; const char* pin; void* detour; void** original; };
 inline std::array<Hook,5> hook_specs() {
     return {{
-        {0x1a02d70,"488bc4488958184889702048895010488948085741544155415641574881ec90",reinterpret_cast<void*>(&consumer_hook),&originals[0]},
-        {0x1a084e0,"4889542410534883ec3049bab301000000010000440fb6ca488bd948b825232284e49cf2cb",reinterpret_cast<void*>(&lookup_hook),&originals[1]},
-        {0x1a08910,"81e2ffffff0048c1e20548035160488bc2c3",reinterpret_cast<void*>(&getter_hook),&originals[2]},
-        {0x1a014b0,"40564883ec60488bf24183f8ff750833c04883c4605ec34889",reinterpret_cast<void*>(&decoder_hook),&originals[3]},
-        {0x2c4fc90,"48895c24084889742410574883ec404533d2418bf0448bda48",reinterpret_cast<void*>(&pcall_hook),&originals[4]}
+        {0x1a29680,"488bc4488958184889702048895010488948085741544155415641574881ec90",reinterpret_cast<void*>(&consumer_hook),&originals[0]},
+        {0x1a2edf0,"4889542410534883ec3049bab301000000010000440fb6ca488bd948b825232284e49cf2cb",reinterpret_cast<void*>(&lookup_hook),&originals[1]},
+        {0x1a2f220,"81e2ffffff0048c1e20548035160488bc2c3",reinterpret_cast<void*>(&getter_hook),&originals[2]},
+        {0x1a27dc0,"40564883ec60488bf24183f8ff750833c04883c4605ec34889",reinterpret_cast<void*>(&decoder_hook),&originals[3]},
+        {0x2c9ac10,"48895c24084889742410574883ec404533d2418bf0448bda48",reinterpret_cast<void*>(&pcall_hook),&originals[4]}
     }};
 }
 // Fixed RVAs guarded by exact executable hash and loaded bytes; no uniqueness claim for registry helpers.

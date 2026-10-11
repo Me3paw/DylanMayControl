@@ -55,7 +55,7 @@ inline void invoke(Handler* handler, void* context) {
     const DWORD saved = GetLastError();
     native_ui::sdk::CallbackScope scope;
     const auto gen = handler->generation;
-    if (recording.load() && native_ui::sdk::active() &&
+    if (diagnostics::enabled && recording.load() && native_ui::sdk::active() &&
         gen == native_ui::sdk::generation.load() &&
         GetCurrentThreadId() == native_ui::sdk::ui_thread.load()) {
         if (!TryAcquireSRWLockExclusive(&lock)) ++dropped;
@@ -116,7 +116,8 @@ inline bool prepare(bool opt_in, bool registration_loaded_contract_verified = fa
         !exact(base + 0x18a614, free_bytes, sizeof(free_bytes))) return false;
     allocate = reinterpret_cast<Allocate>(alloc);
     deallocate = reinterpret_cast<Delete>(free);
-    owned_probe_script = native_ui::sdk::owned_bootstrap +
+    owned_probe_script = native_ui::sdk::owned_bootstrap;
+    if constexpr(diagnostics::enabled)owned_probe_script +=
         "\n;(function(){if(window.engine&&typeof window.engine.call==='function'){"
         "window.engine.call('__CRLoadoutAbiProbe_01');}}());\n";
     if (owned_probe_script.size() > 512 * 1024) return false;
@@ -144,8 +145,8 @@ inline const char* register_current(void* current_view, std::uint64_t expected_g
     const auto reg = reinterpret_cast<Register>(table[0x1c0 / 8]);
     const auto result = reg(current_view, "__CRLoadoutAbiProbe_01", handler);
     // The SDK always consumes handler. Never dereference it after this call.
-    registered_handle.store(result);
-    registered_generation.store(expected_generation);
+    CRMOD_DIAGNOSTIC(registered_handle.store(result));
+    CRMOD_DIAGNOSTIC(registered_generation.store(expected_generation));
     if (result != handler_key || !recording.load() || !native_ui::sdk::active() ||
         native_ui::sdk::generation.load() != expected_generation) return nullptr;
     return owned_probe_script.c_str();

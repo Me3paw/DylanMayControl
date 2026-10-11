@@ -22,7 +22,7 @@ using feature_status::Event;
 using feature_status::Feature;
 using feature_status::State;
 
-constexpr uint32_t kRvaChooser = 0x235e1e0;
+constexpr uint32_t kRvaChooser = 0x239ec20;
 using ChooserFn = uint32_t (*)(void*, uint8_t, void*, void*, void*, void*, void*, void*, void*, void*);
 using InputFn = uint8_t* (*)(void*, void*, void*, void*);
 using GraphFn = void (*)(void*, void*, void*, void*);
@@ -61,19 +61,19 @@ inline uint8_t test_unlock_hook(int32_t id,void* mud,void* graph) {
 #endif
 
 // ---- REAL native sub-steps (each verified by native_pins at init; only installed when every pin matches) ----
-inline bool op_unlock_gate(uint32_t id, void* mud, void* g) { return fn<uint8_t (*)(int32_t, void*, void*)>(0x2339010)(static_cast<int32_t>(id), mud, g) != 0; }
-inline bool op_state_blocked(void* node, uint64_t mask, void* st, void* cond) { return fn<uint8_t (*)(void*, uint64_t, void*, void*)>(0x235d740)(node, mask, st, cond) != 0; }
-inline bool op_condition(uint32_t id, void* node, void* cond) { return (fn<uint64_t (*)(uint32_t, uint8_t, uint8_t, void*, void*)>(0x235c420)(id, 0, 1, node, cond) & 0xff) != 0; }
+inline bool op_unlock_gate(uint32_t id, void* mud, void* g) { return fn<uint8_t (*)(int32_t, void*, void*)>(0x2379b30)(static_cast<int32_t>(id), mud, g) != 0; }
+inline bool op_state_blocked(void* node, uint64_t mask, void* st, void* cond) { return fn<uint8_t (*)(void*, uint64_t, void*, void*)>(0x239e180)(node, mask, st, cond) != 0; }
+inline bool op_condition(uint32_t id, void* node, void* cond) { return (fn<uint64_t (*)(uint32_t, uint8_t, uint8_t, void*, void*)>(0x239ce60)(id, 0, 1, node, cond) & 0xff) != 0; }
 inline bool op_input_ok(void* node, void* combo, void* cfg) {
     alignas(16) uint8_t out[16] = {};
-    const uint8_t* r = (input_original ? input_original : fn<InputFn>(0x235d2b0))(out, node, combo, cfg);
+    const uint8_t* r = (input_original ? input_original : fn<InputFn>(0x239dcf0))(out, node, combo, cfg);
     uint8_t v = 0;
     return r && combat_native::copy_checked(binding().copy, &v, reinterpret_cast<uintptr_t>(r) + 1, 1) && v != 0;
 }
-inline bool op_post_ok(void* node, void* cond, void* cfg) { return (fn<uint8_t (*)(uint64_t, void*, void*, void*)>(0x235d5f0)(1, node, cond, cfg) & 0xff) != 0; }
+inline bool op_post_ok(void* node, void* cond, void* cfg) { return (fn<uint8_t (*)(uint64_t, void*, void*, void*)>(0x239e030)(1, node, cond, cfg) & 0xff) != 0; }
 inline bool op_anim_index(void* anim, uint32_t hash, uint16_t* index) {
     uint16_t out = 0xffff;
-    const uint16_t* r = fn<uint16_t* (*)(void*, uint16_t*, uint32_t)>(0x2dfecb0)(anim, &out, hash);
+    const uint16_t* r = fn<uint16_t* (*)(void*, uint16_t*, uint32_t)>(0x2e4ab70)(anim, &out, hash);
     uint16_t v = 0xffff;
     if (!r || !combat_native::copy_checked(binding().copy, &v, reinterpret_cast<uintptr_t>(r), 2)) return false;
     *index = v;
@@ -220,7 +220,7 @@ inline bool read_shortcut_attack(const combat_mod::ChooserArgs& a, combat_mod::A
 }
 inline std::array<std::atomic<uint64_t>,7> shortcut_rejections{};
 inline std::atomic<uint32_t> shortcut_last_node{UINT32_MAX},shortcut_last_arg{0};
-inline bool shortcut_reject(unsigned stage) { ++shortcut_rejections[stage]; return false; }
+inline bool shortcut_reject([[maybe_unused]] unsigned stage) { CRMOD_DIAGNOSTIC(++shortcut_rejections[stage]); return false; }
 inline void flush_shortcut_diagnostics(FILE* log) {
     if (!log) return;
     static uint32_t next=0; static unsigned budget=256;
@@ -300,7 +300,7 @@ inline bool shortcut_input(const combat_mod::ChooserArgs& a,uint32_t node_idx,ui
 inline bool read_shortcut_legal(const combat_mod::ChooserArgs& a,uint32_t node) {
     auto& b=binding();
     uint8_t combo[combat_mod::rows::kMinCombo]; uint8_t authored=0; bool mapped=false;
-    shortcut_last_node.store(node);
+    CRMOD_DIAGNOSTIC(shortcut_last_node.store(node));
     if (!native_attack_accepted || !chooser_live(a) || !shortcut_input(a,node,combo,authored,mapped)) return shortcut_reject(3);
     auto local=a; if (mapped) local.combo_data=combo;
     uint32_t loadout[4]{},form=0,category=0;uint8_t cfg[0x30]{},candidate[combat_native::graph::kNode]{};
@@ -311,7 +311,7 @@ inline bool read_shortcut_legal(const combat_mod::ChooserArgs& a,uint32_t node) 
     loadout[2]=form;local.loadout=loadout;
     uint32_t connection_arg=0;
     if (!combat_native::shortcut_entry_arg(local,node,b.copy,connection_arg)) return shortcut_reject(4);
-    shortcut_last_arg.store(connection_arg);
+    CRMOD_DIAGNOSTIC(shortcut_last_arg.store(connection_arg));
     if (!combat_native::window_open(local,node,b.copy,b.ops)) return shortcut_reject(5);
     if (!combat_native::legal_node(local,node,b.copy,b.ops,combat_native::SkipRequirement{},connection_arg) || !chooser_live(a)) return shortcut_reject(6);
 #ifdef _WIN32
@@ -410,8 +410,8 @@ inline uint8_t* input_detour(void* output,void* node,void* combo,void* cfg) {
 // from a slow tick. Returns true when ACTIVE.
 inline bool refresh_status() {
     auto& b = binding(); auto& s = st(); auto& reg = feature_status::registry();
-    char miss[160]; miss[0] = 0;
-    auto add = [&](const char* m) { std::snprintf(miss + std::strlen(miss), sizeof miss - std::strlen(miss), "%s%s", miss[0] ? "," : "", m); };
+    char miss[160]{};bool complete=true;
+    auto add = [&](const char* m) { complete=false;(void)m;CRMOD_DIAGNOSTIC(std::snprintf(miss + std::strlen(miss), sizeof miss - std::strlen(miss), "%s%s", miss[0] ? "," : "", m)); };
     if (!s.installed.load()) add("not_initialised");
     if (b.table.size() == 0) add("node_table_empty");
     const auto reader=s.direction_reader.load();
@@ -420,7 +420,7 @@ inline bool refresh_status() {
     if (!b.ops.complete()) add("native_legality_missing");
     if (!b.get_last_error || !b.set_last_error) add("lasterror_pair_missing");
     if (!b.clock) add("clock_missing");
-    if (!miss[0]) {
+    if (complete) {
         b.skip = combat_native::SkipRequirement{};               // exact native legality
         if (s.applied_reader.load()!=reader || !s.module.finishers_enabled()) {
             combat_mod::Readers readers;
@@ -452,8 +452,11 @@ inline bool init(uint64_t base, combat_native::CopyFn guarded_copy, combat_nativ
     static const char* const names[] = {"chooser", "legality", "unlock_gate", "state_blocked", "condition", "input_ok", "post_ok", "anim_index"};
     const char* bad = nullptr;
     if (!native_pins::verify_set(guarded_copy, base, names, sizeof names / sizeof names[0], &bad)) {
-        char why[96]; std::snprintf(why, sizeof why, "pin_mismatch:%s", bad ? bad : "?");
-        reg.set_state(Feature::Finisher, State::Disabled, why);
+        const char* reason=nullptr;
+#if CRMOD_DIAGNOSTICS
+        char why[96]; std::snprintf(why, sizeof why, "pin_mismatch:%s", bad ? bad : "?"); reason=why;
+#endif
+        reg.set_state(Feature::Finisher, State::Disabled, reason);
         return false;
     }
     b.ops = real_ops();
@@ -550,6 +553,7 @@ inline bool hist_same(const HistRec& a, const HistRec& b) {
            std::memcmp(a.c + 0x20, b.c + 0x20, 0x14) == 0;                     // current node, u16, input flags, phase, timer
 }
 inline void history_push(const combat_mod::ChooserArgs& a, uint32_t ret) {
+    if constexpr(!diagnostics::enabled)return;
     History& h = history(); auto& b = binding();
     const bool accepted=ret!=0xffffffffu;
     if (!b.copy || (accepted ? h.accepted_pushed.load(std::memory_order_relaxed)>=kHistAcceptedBudget
@@ -657,7 +661,7 @@ inline unsigned flush_history(bool (*write)(const char*, size_t, void*), void* c
     return n;
 }
 
-// The chooser detour (HOOK RVA 0x235e1e0). Exact forward of all ten arguments; fail-open: whenever anything is missing the
+// The chooser detour (HOOK RVA 0x239ec20). Exact forward of all ten arguments; fail-open: whenever anything is missing the
 // original decides. Never throws (built -fno-exceptions), never blocks.
 inline uint32_t chooser_detour(void* node, uint8_t p2, void* c, void* cond, void* load, void* mud, void* state, void* cfg, void* g, void* anim) {
     State_& s = st();
@@ -707,7 +711,7 @@ inline uint32_t chooser_detour(void* node, uint8_t p2, void* c, void* cond, void
             result=chosen;
         }
         combat_mod::Attack atk = combat_mod::Attack::None;
-        if (result==native_result && combat_native::read_attack(a, &atk) && atk != combat_mod::Attack::None)
+        if (diagnostics::enabled && result==native_result && combat_native::read_attack(a, &atk) && atk != combat_mod::Attack::None)
             reg.event(Feature::Finisher, Event::Reject, reinterpret_cast<uintptr_t>(g), reinterpret_cast<uintptr_t>(c), 0, kRvaChooser, "attack pressed: no finisher applicable (direction/node/legality)");
     }
     combat_mod::Attack attack=combat_mod::Attack::None;
@@ -715,8 +719,7 @@ inline uint32_t chooser_detour(void* node, uint8_t p2, void* c, void* cond, void
     if (observer && native_attack_accepted && have_before_turn_direction && chooser_live(a) &&
         combat_native::read_attack(a,&attack) && attack!=combat_mod::Attack::None)
         observer(a,result,before_turn_direction);
-    history_push(a, result);
-    discover(a, result);
+    if constexpr(diagnostics::enabled) { history_push(a,result); discover(a,result); }
     if (binding().set_last_error) binding().set_last_error(err);
     return result;
 }

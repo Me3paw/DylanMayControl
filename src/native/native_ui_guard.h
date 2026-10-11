@@ -85,8 +85,8 @@ inline native_ui::sdk::Guard verify(bool main_executable_hash_verified) {
     if (!main_executable_hash_verified || !exe || !cohtml || !cohtml_file_matches(cohtml)) return result;
     const auto eb = reinterpret_cast<std::uintptr_t>(exe), cb = reinterpret_cast<std::uintptr_t>(cohtml);
     std::uintptr_t dom_iat = 0, release_iat = 0; SIZE_T read = 0;
-    if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(eb + 0x3a79ef0), &dom_iat, sizeof(dom_iat), &read) || read != sizeof(dom_iat) ||
-        !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(eb + 0x3a79f00), &release_iat, sizeof(release_iat), &read) || read != sizeof(release_iat) ||
+    if (!ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(eb + 0x3accf58), &dom_iat, sizeof(dom_iat), &read) || read != sizeof(dom_iat) ||
+        !ReadProcessMemory(GetCurrentProcess(), reinterpret_cast<void*>(eb + 0x3accf68), &release_iat, sizeof(release_iat), &read) || read != sizeof(release_iat) ||
         dom_iat != cb + empty_rva || release_iat != cb + empty_rva ||
         !bytes_match(cb + empty_rva, empty_bytes, sizeof(empty_bytes)) ||
         !bytes_match(cb + ready_rva, ready_bytes, sizeof(ready_bytes)) ||

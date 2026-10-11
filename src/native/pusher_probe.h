@@ -4,7 +4,7 @@
 // sustained object contact (object-contact capture, 220 K) and for standing against an enemy without attacking (enemy-contact, 580 K). It is a
 // melee-attack-target relation written by the melee/AI systems, not a contact output (CB53).
 // WHAT this reads (all guarded copies at the controller wrapper entry/exit, same loan as the K probe; no calls, no writes):
-//   container = *(CharacterController.col[row*0x20]+8) (cb26), pusher = *(container+0xe0) validated by its vtable ptr (exe+0x4d7fc48, cb24),
+//   container = *(CharacterController.col[row*0x20]+8) (cb26), pusher = *(container+0xe0) validated by its vtable ptr (exe+0x4d92978, cb24),
 //   records: ptr +0x10, u32 count +0x18, 0x198-byte records {+0 body ptr, +0x20/+0x28 doubles (last refresh), +0x40 contact count (<=12),
 //   +0x44 7-float contacts}; body key = *(u64*)(*(u64*)body + 0x10) (>>1 = key of FUN_142cf0d00/142cd55c0), entity vectors A (+0x1010 ptr,
 //   +0x1018 u32) and B (+0x1070 ptr, +0x1078 u32) of u64 entity handles, current time double +0x10d0; per-entity flag word
@@ -19,7 +19,7 @@ using combat_native::at;
 using combat_native::copy_checked;
 using combat_native::qword;
 
-constexpr uint32_t kRvaPusherVtbl = 0x4d7fc48, kMaxRecords = 4, kMaxHandles = 8, kBudget = 16384, kHeartbeatMs = 1000;
+constexpr uint32_t kRvaPusherVtbl = 0x4d92978, kMaxRecords = 4, kMaxHandles = 8, kBudget = 16384, kHeartbeatMs = 1000;
 constexpr size_t kRing = 128;
 struct Rec {
     uint32_t seq = 0, ms = 0; uint64_t qpc = 0, container = 0, pusher = 0, vt = 0; double now = 0;

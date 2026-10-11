@@ -1,5 +1,6 @@
 // Native form metadata only. No selection calls, gameplay writes or UI binding.
 #pragma once
+#include "diagnostics.h"
 #include <windows.h>
 #include <atomic>
 #include <cstdint>
@@ -25,8 +26,9 @@ static bool started = false;
 }
 
 // One capture lifetime per process, enabled only after root's pinned hook guard.
-static bool start(const std::atomic<bool>& stopping,
+static inline bool start(const std::atomic<bool>& stopping,
                   bool hook_contract_verified = false) {
+    if constexpr(!diagnostics::enabled)return false;
     if (!hook_contract_verified || stopping.load()) return false;
     AcquireSRWLockExclusive(&detail::lock);
     bool accepted = !detail::started && !stopping.load();
@@ -40,9 +42,10 @@ static bool start(const std::atomic<bool>& stopping,
 
 // Called before the native lookup's caller resumes. Failed/empty lookups must
 // not read the uninitialized category or an ID pointer native code never read.
-static void observe_form_result(const std::uint8_t* out2,
+static inline void observe_form_result(const std::uint8_t* out2,
                                 const std::uint32_t* id_pointer,
                                 const void* cfg) {
+    if constexpr(!diagnostics::enabled)return;
     if (!detail::recording.load()) return;
     DWORD error = GetLastError();
     ++detail::attempts;
@@ -87,7 +90,7 @@ static void stop() {
 
 // Sole writer only. configuration_key is an opaque address, not a world epoch;
 // samples are not a complete catalogue or an ownership/eligibility predicate.
-static void flush(FILE* log) {
+static inline void flush(FILE* log) {
     if (!log) return;
     detail::FormResult rows[256];
     AcquireSRWLockExclusive(&detail::lock);

@@ -1,44 +1,34 @@
-# DylanMayControl v1.0.1
+# DylanMayControl v1.0.3
 
-DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant. The name is a play on Devil May Cry.
+DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant.
 
-Release route: **Original DLL**. Build with `./scripts/native/build-plugin.sh`.
+Current route: **native Original DLL (recommended Main download)**. Both variants use identical shared native/UI source. Choose one route; never load both copies of this mod.
 
-This patch lets one Split Pivot and one Split Orbit remain active simultaneously and survive other finishers. Native duration, expiry, cancels, same-move retrigger behavior, ownership and upgrades remain intact. See CHANGELOG.md.
+## Compatibility and installation
 
-## Install one route
+Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.0.3 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
 
-Download the matching archive from [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181) and follow its INSTALLATION.txt and USER_GUIDE.txt.
+- Native Original DLL: extract `DylanMayControl-1.0.3-OriginalDLL.zip` beside CONTROLResonant.exe; it installs root xinput1_4.dll. No f2g requirement. On Proton use `xinput1_4=n,b` in your game's DLL overrides.
+- f2g: extract `DylanMayControl-1.0.3.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
 
-- Main/f2g: `crmods/CombatLoadout/combatloadout.dll`; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled.
-- Optional/Original DLL: `xinput1_4.dll` beside `CONTROLResonant.exe`; f2g is not required for this mod.
+Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, saves and unrelated mods. When switching routes, back up/remove only the other DylanMayControl DLL; f2g may remain for unrelated plugins. Merge overrides with existing launcher settings. Follow INSTALLATION.txt and USER_GUIDE.txt in the release archive.
 
-Install only one DylanMayControl route. Remove the other copy when switching, preserve settings/presets and unrelated mods, and close the game before changing files.
+## Features and verification
 
-## Source and build
+Three primary/secondary slots, custom cycle bindings, queued native weapon handoffs, held lock and target-relative finisher commands, sustained charged Uppercut targeting, one owned Split Pivot/Orbit each, and adjustable resource loot. Native movement, attack pace, cancels, acquisition and per-weapon upgrades remain enforced. See CHANGELOG.md and BUILDING.md.
 
-Both branches contain the same 64 source files. The route changes only the build option and installation layout. See BUILDING.md; builds stay under ignored `.work/` and never install into the game.
+Both routes passed build/export and isolated 15-second Linux/Proton startup checks. The author tested the native Original DLL route on the updated game and reported no obvious regression. The f2g route uses the same shared source and passed startup checks; separate f2g gameplay and native Windows gameplay have not been independently tested.
 
-- [f2g v1.0.1 source](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.0.1)
-- [Original DLL v1.0.1 source](https://github.com/Me3paw/DylanMayControl/tree/original-dll-v1.0.1)
+Production diagnostic logging is compiled out in both routes. The functionality/performance source and binary audit found no blocking issue or new steady-state regression in reviewed paths. This is not a controlled current-build FPS or 1% low measurement.
 
-Published DLL SHA256:
+## Source and release
 
-- f2g: `4a29cc38f14758b4c4186fe4c7a7ceda15544fc0e202ab43fd87b8027ef500b3`
-- Original DLL: `8ef95b46af7eb48529589cb78fe4aa8bfbe04608d99e520f9c17555b2c0a42b8`
+- [Native Original DLL v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/original-dll-v1.0.3)
+- [f2g v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.0.3)
+- [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181)
 
-Older tags `f2g-v1.0.0-build102` and `original-dll-v1.0.0-build103` preserve the v1.0.0 snapshots. SOURCE-SHA256SUMS.txt records this release source. Compiler/toolchain differences can change rebuilt DLL bytes.
-
-## Verification
-
-Both v1.0.1 routes passed build/export checks and bounded 15-second startup checks on Linux/Proton. The author confirmed the Split persistence fix working in gameplay with the Original DLL route. The f2g route contains the identical shared source fix but has not had a separate gameplay test. Native Windows gameplay has not been independently tested.
-
-Possible stutter has been observed, but it is unmeasured and its cause is unconfirmed. Neither route has an established performance advantage.
+DLL SHA256: `2c7ac6c9adf0d983bef3fe42d8f0311768e503b9869f3a46aa70537ec026063f`. The source in each archive is flat under SOURCE/, with SOURCE-SHA256SUMS.txt. Older tags and Nexus files retain prior-build releases.
 
 ## License and credits
 
-The author's original code and documentation are MIT licensed, including commercial reuse with attribution and the copyright/license notice retained; see LICENSE and CREDITS.md.
-
-**The MIT grant excludes `src/ui/weapon_icons.js` and its embedded CONTROL Resonant icons, other Remedy imagery, and gameplay screenshots.** Those remain subject to the rights holders and applicable fan-content rules. MinHook/HDE retain their separate BSD license in `third_party/minhook/LICENSE.txt`.
-
-No game executable, compiler binaries, screenshots, saves, logs, personal settings or fetched tools are included. This is unofficial fan work not approved or endorsed by Remedy Entertainment Plc or its affiliates.
+Original code/docs are MIT licensed, including commercial reuse with attribution and retained notices; see LICENSE and CREDITS.md. **src/ui/weapon_icons.js, embedded Remedy icons, other game imagery and gameplay screenshots are excluded from the MIT grant.** MinHook/HDE retain the BSD notice in third_party/minhook/LICENSE.txt. No game binaries, saves, logs, personal settings, fetched tools or compilers are included. This is unofficial fan work, not approved or endorsed by Remedy Entertainment Plc or its affiliates.
