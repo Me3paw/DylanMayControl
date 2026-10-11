@@ -20,7 +20,7 @@ constexpr uint32_t kController=0x9b382c56, kPhysicsEntity=0x6ebfd07c, kPlane=0xc
 constexpr uint32_t kInput=step_binding::fnv1a("heron::player_input::component::Input");
 constexpr uint32_t kRequest=step_binding::fnv1a("heron::jump::component::NextJumpRequest");
 static_assert(kInput==0x49458a06 && kRequest==0xce27ff62);
-constexpr uint32_t kOverlapRva=0x2d05b00, kQueries=16, kRows=256, kArches=4096, kRecords=4096;
+constexpr uint32_t kOverlapRva=0x2d51490, kQueries=16, kRows=256, kArches=4096, kRecords=4096;
 constexpr uint8_t kOverlapPin[]={0x48,0x8b,0xc4,0x48,0x89,0x58,0x08,0x48,0x89,0x70,0x10,0x48,0x89,0x78,0x18,0x55,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0x6c,0x24,0x90,0x48,0x81,0xec,0x70,0x01,0x00,0x00,0xc5};
 using OverlapFn=uint64_t (*)(uint64_t,uint64_t,const float*,const float*,float,float);
 enum Incomplete : uint32_t { Read=1, Ownership=2, Time=4, QueryCap=8, RowCap=16, ArchCap=32, PartialStart=64, Busy=128 };

@@ -84,6 +84,7 @@ inline Snapshot capture(std::uintptr_t columns, std::uintptr_t query, Reader rea
 #include <windows.h>
 #include <atomic>
 #include <cstdio>
+#include "performance_log.h"
 namespace loadout_attack_probe {
 static_assert(sizeof(void*)==8,"Win64 native ABI required");
 using FormsCall = void (*)(void*,void*,void*);
@@ -104,6 +105,7 @@ inline bool active() {
     return recording.load() && !stopped.load() && shared_stopping && !shared_stopping->load();
 }
 inline bool copy(std::uintptr_t address,void* destination,std::size_t size) {
+    performance_log::Scope timing(performance_log::Phase::GuardedRead);
 #ifdef CRMOD_API_SELF_CHECK
     if (copy_test_barrier) copy_test_barrier();
 #endif
@@ -112,6 +114,7 @@ inline bool copy(std::uintptr_t address,void* destination,std::size_t size) {
         destination,size,&copied) && copied==size;
 }
 inline void record(std::uint64_t call,unsigned phase,void* columns,void* query) {
+    if constexpr(!diagnostics::enabled)return;
     if (!active()) return;
     const DWORD saved=GetLastError();
     ++attempts;

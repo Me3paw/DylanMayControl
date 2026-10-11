@@ -81,6 +81,7 @@ inline bool read_one(void* ctx, std::uint64_t gen, char (&owned)[513], std::size
 }
 inline void invoke_owned(native_ui_invoke_probe::Handler* handler, void* ctx,
                          const char* input, std::size_t size) {
+    if constexpr(!diagnostics::enabled)return;
     const DWORD saved = GetLastError();
     struct Restore { DWORD value; ~Restore() { SetLastError(value); } } restore{saved};
     const auto gen = handler->generation;
@@ -122,7 +123,8 @@ inline bool prepare(bool opt_in) {
     const auto base = native_ui::sdk::guard.cohtml_base;
     for (const auto& pin : pins)
         if (!native_ui_guard::bytes_match(base+pin.rva,pin.bytes,sizeof(pin.bytes))) return false;
-    native_ui_invoke_probe::owned_probe_script = native_ui::sdk::owned_bootstrap +
+    native_ui_invoke_probe::owned_probe_script = native_ui::sdk::owned_bootstrap;
+    if constexpr(diagnostics::enabled)native_ui_invoke_probe::owned_probe_script +=
         "\n;(function(){if(window.engine&&typeof window.engine.call==='function'){"
         "window.engine.call('__CRLoadoutAbiProbe_01','cr.echo.request.v1').then(function(value){"
         "if(value==='cr.echo.response.v1'){window.engine.call('__CRLoadoutAbiProbe_01',"
@@ -133,6 +135,7 @@ inline bool prepare(bool opt_in) {
 }
 inline void stop() { enabled.store(false); }
 inline void flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return;
     if (!log) return;
     static unsigned previous = UINT_MAX, previous_failures = UINT_MAX;
     const auto current = stage.load(), failed = failures.load();

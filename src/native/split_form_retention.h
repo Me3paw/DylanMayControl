@@ -3,7 +3,7 @@
 
 namespace split_form_retention {
 inline constexpr std::uint32_t kPivot=0x87b82de3, kOrbit=0xc25e131c;
-inline constexpr std::uint32_t kPredicateRva=0x23390a0, kSpawnReturnRva=0x2349947;
+inline constexpr std::uint32_t kPredicateRva=0x2379bc0, kSpawnReturnRva=0x238a467;
 inline constexpr const char* kPredicatePin="4883ec384180783400743b8b02413b40087333488d148048c1";
 inline constexpr const char* kSpawnCallPin="4d8bc3498bd18b4818c5f877e859f7feff0fb6f0";
 inline bool retain(std::uint32_t id,std::uint16_t flags) {
@@ -38,8 +38,8 @@ inline bool owned_split(std::uint32_t id,void* mud,void* graph) {
 
     // Re-read ownership from this native graph invocation, never from the UI cache.
     loadout_lookup_probe::Lookup tree{},node{};
-    const auto tree_get=reinterpret_cast<loadout_lookup_probe::Getter>(executable_base+0x1dda190);
-    const auto node_get=reinterpret_cast<loadout_lookup_probe::Getter>(executable_base+0x1dda220);
+    const auto tree_get=reinterpret_cast<loadout_lookup_probe::Getter>(executable_base+0x1e019a0);
+    const auto node_get=reinterpret_cast<loadout_lookup_probe::Getter>(executable_base+0x1e01a30);
     if (tree_get(&tree,graph,loadout_current_node::kMeleeTree)!=&tree || tree.found!=1 ||
         node_get(&node,reinterpret_cast<void*>(tree.pointer),id)!=&node || node.found!=1) return false;
     loadout_current_node::Facts state{};

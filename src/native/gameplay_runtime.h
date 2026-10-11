@@ -51,6 +51,7 @@ inline std::uint32_t clock_ms() { return static_cast<std::uint32_t>(GetTickCount
 inline std::uint32_t get_error() { return GetLastError(); }
 inline void set_error(std::uint32_t error) { SetLastError(error); }
 inline bool collect_accepted(const char* line,std::size_t size) {
+    if constexpr(!diagnostics::enabled)return false;
     const DWORD error=GetLastError(); bool queued=false;
     if (!stopping.load() && line && size<sizeof(lines[0].text)) {
         if (!TryAcquireSRWLockExclusive(&log_lock)) ++log_dropped;
@@ -91,18 +92,27 @@ inline int player_combo_row(std::uint64_t row) {
 }
 inline std::uint64_t observed_player() { return loadout_player_catalogue::observed_player_actor.load(); }
 inline void collision_detour(void* a,void* b,void* c,void* d) {
+#if !CRMOD_DIAGNOSTICS
+    const DWORD incoming=GetLastError();
+    if(!stopping.load() && shared_stopping && !shared_stopping->load() && player_collision(a))
+        step_binding::feed_world_from_ctx(b);
+    SetLastError(incoming);
+    original_collision(a,b,c,d);
+#else
     const DWORD incoming=GetLastError();
     const auto overlap_sample=(!stopping.load() && shared_stopping && !shared_stopping->load() && player_collision(a))
         ? enemy_contact_native::begin(a,b) : enemy_contact_native::Invocation{};
     bool observe=false;
-    if (!stopping.load() && shared_stopping && !shared_stopping->load() &&
-        collision_calls.load()<kCollisionCalls && player_collision(a)) {
-        const auto number=collision_calls.fetch_add(1);
-        observe=number<kCollisionCalls;
+    if (!stopping.load() && shared_stopping && !shared_stopping->load() && player_collision(a)) {
+        // Split ownership needs a current world even after telemetry is exhausted.
+        step_binding::feed_world_from_ctx(b);
+        if(collision_calls.load()<kCollisionCalls) {
+            const auto number=collision_calls.fetch_add(1);
+            observe=number<kCollisionCalls;
+        }
     }
     SetLastError(incoming);
     if (observe) {
-        step_binding::feed_world_from_ctx(b);
         pusher_probe::capture(a,0);                       // read-only guarded copies: engine pusher records/vectors (CB53)
         SetLastError(incoming);
         collision.run(original_collision,a,b,c,d);
@@ -114,6 +124,7 @@ inline void collision_detour(void* a,void* b,void* c,void* d) {
     const DWORD forwarded=GetLastError();
     enemy_contact_native::end(a,b,overlap_sample);
     SetLastError(forwarded);
+#endif
 }
 inline std::uint32_t thread_id() { return GetCurrentThreadId(); }
 inline bool history_sink(const char* line,std::size_t size,void* context) {
@@ -127,20 +138,24 @@ inline bool prepare(std::uintptr_t base,const std::atomic<bool>* stop_token=null
     auto& b=combat_native::binding();
     b.get_last_error=&get_error; b.set_last_error=&set_error;
     chooser_ready=finisher_binding::init(base,&copy,&clock_ms,&collect);
-    finisher_binding::set_raw_accept(&collect_accepted);   // discovery lines are retried when the 16-slot queue is full
-    finisher_binding::set_history_env(&qpc_now,&player_combo_row);
-    camera_lock_log::init(base,&copy,&qpc_now);
+    if constexpr(diagnostics::enabled) {
+        finisher_binding::set_raw_accept(&collect_accepted);
+        finisher_binding::set_history_env(&qpc_now,&player_combo_row);
+    }
+    camera_lock_log::init(base,&copy,diagnostics::enabled?&qpc_now:nullptr);
     // Keep the shared entity/input reader alive after removing stomp actuation.
     step_binding::init_reader(base,&copy);
 
     step_binding::set_player_source(&observed_player);
-    step_binding::set_qpc_source(&qpc_now);
-    pusher_probe::set_qpc_source(&qpc_now);
-    step_binding::set_raw_accept(&collect_accepted);   // read-only jump-gate evidence lines (<=256 records per session)
+    if constexpr(diagnostics::enabled) {
+        step_binding::set_qpc_source(&qpc_now);
+        pusher_probe::set_qpc_source(&qpc_now);
+        step_binding::set_raw_accept(&collect_accepted);
+    }
     step_binding::refresh_status();
     const char* const names[]={"collision_wrap"}; const char* bad=nullptr;
     collision_ready=native_pins::verify_set(&copy,base,names,1,&bad);
-    if (collision_ready) {
+    if (diagnostics::enabled && collision_ready) {
         collision_probe::Config config{};
         config.log_empty=true; // Only the copied Player handle passes the outer filter.
         collision_ready=collision.configure(&copy,&thread_id,&clock_ms,&get_error,&set_error,config);
@@ -148,6 +163,7 @@ inline bool prepare(std::uintptr_t base,const std::atomic<bool>* stop_token=null
     return chooser_ready;
 }
 inline void flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return;
     if (!log) return;
     held_lock_native::flush(log);
     player_geometry_log::flush(log);
@@ -171,6 +187,7 @@ inline void flush(FILE* log) {
     std::fflush(log);
 }
 inline void tick() {
+    if constexpr(!diagnostics::enabled)return;
     static ULONGLONG next=0;
     const auto now=GetTickCount64();
     if (now<next || stopping.load()) return;

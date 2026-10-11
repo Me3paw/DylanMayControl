@@ -1,4 +1,5 @@
 #pragma once
+#include "diagnostics.h"
 #include "loadout_control.h"
 #include "mod_bindings.h"
 #include <windows.h>
@@ -77,9 +78,9 @@ inline void sample(const Context& context,bool available,HMODULE backend=nullptr
         if (sequence==UINT64_MAX) { stopped.store(true); return; }
         Request r{}; r.context=context; r.focus=focus_generation.load(); r.sequence=++sequence;
         r.channel=static_cast<loadout_control::Channel>(i);
-        LARGE_INTEGER tick{}; QueryPerformanceCounter(&tick); r.qpc=static_cast<std::uint64_t>(tick.QuadPart);
-        if (!TryAcquireSRWLockExclusive(&lock)) { ++dropped; continue; }
-        if (count==requests.size()) ++dropped; else requests[(head+count++)%requests.size()]=r;
+        if constexpr(diagnostics::enabled) { LARGE_INTEGER tick{}; QueryPerformanceCounter(&tick); r.qpc=static_cast<std::uint64_t>(tick.QuadPart); }
+        if (!TryAcquireSRWLockExclusive(&lock)) { CRMOD_DIAGNOSTIC(++dropped); continue; }
+        if (count==requests.size()) CRMOD_DIAGNOSTIC(++dropped); else requests[(head+count++)%requests.size()]=r;
         ReleaseSRWLockExclusive(&lock);
     }
 }
@@ -94,8 +95,9 @@ inline void consume(loadout_control::Control& control,const loadout_control::Ada
         ReleaseSRWLockExclusive(&lock);
         const bool stale=r.focus!=focus_generation.load() || !same(r.context,current) || !game_foreground(GetForegroundWindow());
         const auto result=stale ? loadout_control::Result::Rejected : control.cycle(adapter,r.channel);
-        if (!TryAcquireSRWLockExclusive(&lock)) { ++dropped; continue; }
-        if (completion_count==completions.size()) ++dropped;
+        if constexpr(!diagnostics::enabled) { (void)result;continue; }
+        if (!TryAcquireSRWLockExclusive(&lock)) { CRMOD_DIAGNOSTIC(++dropped); continue; }
+        if (completion_count==completions.size()) CRMOD_DIAGNOSTIC(++dropped);
         else {
             auto& done=completions[completion_count++];done={r.sequence,r.channel,result,stale,control.desired_choice(adapter,r.channel),{}};
             done.slots=control.menu(adapter,nullptr,0).channels[static_cast<unsigned>(r.channel)].slots;
@@ -105,6 +107,7 @@ inline void consume(loadout_control::Control& control,const loadout_control::Ada
 }
 inline void stop() { stopped.store(true); }
 inline void flush(FILE* file) {
+    if constexpr(!diagnostics::enabled)return;
     if (!file || !TryAcquireSRWLockExclusive(&lock)) return;
     std::array<Completion,32> batch{}; const unsigned n=completion_count;
     for (unsigned i=0;i<n;++i) batch[i]=completions[i]; completion_count=0;

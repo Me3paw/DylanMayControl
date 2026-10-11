@@ -1,4 +1,5 @@
 #pragma once
+#include "diagnostics.h"
 #include "loadout_attack_probe.h"
 #include "loadout_current_node.h"
 #include <array>
@@ -17,7 +18,7 @@ struct Snapshot {
 template<class Reader>
 inline Snapshot capture(std::uintptr_t outer,std::uintptr_t system,Reader read) {
     Snapshot out{}; std::uintptr_t address=0; std::uint64_t scalar=0;
-    if (outer && read(outer,&scalar,sizeof(scalar))) {
+    if (diagnostics::enabled && outer && read(outer,&scalar,sizeof(scalar))) {
         out.outer_first_word=scalar; out.copied|=kOuterWord;
     }
     if (!loadout_attack_probe::add(system,0x58,address) ||
@@ -34,10 +35,12 @@ inline Snapshot capture(std::uintptr_t outer,std::uintptr_t system,Reader read) 
         if (loadout_attack_probe::add(base,offset,address) &&
             read(address,&temporary,sizeof(temporary))) { value=temporary; out.copied|=bit; }
     };
-    copy_word(arguments[5],0xa0,out.input_world_a0,kInputA0);
-    copy_word(arguments[5],0x268,out.input_world_268,kInput268);
-    copy_word(arguments[2],0x2058,out.arena_counter,kArenaCounter);
-    copy_word(arguments[2],0x1048,out.message_counter,kMessageCounter);
+    if constexpr(diagnostics::enabled) {
+        copy_word(arguments[5],0xa0,out.input_world_a0,kInputA0);
+        copy_word(arguments[5],0x268,out.input_world_268,kInput268);
+        copy_word(arguments[2],0x2058,out.arena_counter,kArenaCounter);
+        copy_word(arguments[2],0x1048,out.message_counter,kMessageCounter);
+    }
     return out;
 }
 } // namespace loadout_selection_scope
@@ -77,6 +80,7 @@ inline bool active() {
 }
 inline void publish(const Borrowed& scope,unsigned kind,std::uint32_t choice_id=0,
                     void* graph=nullptr,void* lua=nullptr) {
+    if constexpr(!diagnostics::enabled)return;
     if (!active()) return;
     // Cap routine telemetry, preserving actual choices and the live bridge.
     if (kind==0 || kind==1) {
@@ -123,6 +127,7 @@ inline void shim(void* first,void* middle,void* third) {
 }
 // Observe only actual choices made inside this thread's current shim invocation.
 inline void observe_choice(std::uint32_t id,void* graph,void* lua,bool after) {
+    if constexpr(!diagnostics::enabled)return;
     const DWORD saved=GetLastError();
     if (borrowed) publish(*borrowed,after ? 3u : 2u,id,graph,lua);
     SetLastError(saved);
@@ -141,6 +146,7 @@ inline bool stop() {
     const bool complete=attempts.load()==0; stop_incomplete.store(!complete); return complete;
 }
 inline bool flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return true;
     if (!log || !TryAcquireSRWLockExclusive(&queue_lock)) return false;
     Record rows[128]; const unsigned size=count;
     std::memcpy(rows,queue,size*sizeof(Record)); count=0; ReleaseSRWLockExclusive(&queue_lock);

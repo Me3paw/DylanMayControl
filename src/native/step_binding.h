@@ -33,7 +33,7 @@ using combat_native::at;
 using combat_native::copy_checked;
 using combat_native::qword;
 
-constexpr uint32_t kRvaLoco = 0x2278f90, kRvaJump = 0x23f9e80;
+constexpr uint32_t kRvaLoco = 0x22b31b0, kRvaJump = 0x243b190;
 using WriteFn = bool (*)(void* dst, const void* src, size_t n);   // guarded (VirtualQuery writable) write supplied by the loader
 using PlayerFn = uint64_t (*)();                                  // observed full Player actor handle (0 = unknown)
 using LocoFn = void (*)(void**, void*);
@@ -169,7 +169,7 @@ inline bool resolve_player(uint64_t w, uint64_t actor, PlayerRows* out) {
 // ---- ground / jump / dodge / float observation (naga #46662): READ-ONLY state samples + explicit scope failures ----
 // Samples the PLAYER row (identity-bound, see observe_loco) from the existing jump-input hook: Jump row (+0x14 phase, +0x15 type,
 // +0x20 index, +0x21, +0x22, raw 0x28 B), DodgeData (+0x30 used, +0x34 AIR used, raw 0x40 B), Airborne (+8 now, +9 previous, raw 0xc B),
-// NextJumpRequest {counter,type} read AFTER the original, and the jump / dodge action flags (flag-A helper, RVAs 0x5ceb488 / 0x5ceb490)
+// NextJumpRequest {counter,type} read AFTER the original, and the jump / dodge action flags (flag-A helper, RVAs 0x5ce6598 / 0x5ce65a0)
 // of the CURRENT borrowed Player input row. One `S ...` text line per changed signature (+1 s heartbeat) through a bounded try-lock
 // ring flushed by the worker; when the Player scope cannot be established a JSON `step_probe_scope` line names the reason (power-of-two
 // counts) instead of silence. Nothing is written or called besides the pinned flag-A read (only on the identity-verified Player row).
@@ -223,7 +223,7 @@ inline void probe_diagnose() {
 inline bool read_action(uint64_t input_row, uint16_t action, bool* down) {
     Env& e = env();
     if (!e.pins_ok || action == 0xffff || !input_row || (action == e.dodge_action && !e.dodge_flag_read)) return false;
-    *down = fn<uint8_t (*)(void*, uint16_t)>(0x228d1f0)(reinterpret_cast<void*>(static_cast<uintptr_t>(input_row)), action) != 0;
+    *down = fn<uint8_t (*)(void*, uint16_t)>(0x22c77b0)(reinterpret_cast<void*>(static_cast<uintptr_t>(input_row)), action) != 0;
     return true;
 }
 inline uint64_t state_signature(const StateRec& r) {
@@ -456,7 +456,7 @@ inline void loco_detour(void** cols, void* x) {
 inline bool jump_down(uint64_t input_row, bool* down) {
     Env& e = env();
     if (!e.pins_ok || !e.have_jump_action || !input_row) return false;
-    *down = fn<uint8_t (*)(void*, uint16_t)>(0x228d1f0)(reinterpret_cast<void*>(static_cast<uintptr_t>(input_row)), e.jump_action) != 0;
+    *down = fn<uint8_t (*)(void*, uint16_t)>(0x22c77b0)(reinterpret_cast<void*>(static_cast<uintptr_t>(input_row)), e.jump_action) != 0;
     return true;
 }
 
@@ -713,10 +713,10 @@ inline bool init(uint64_t base, CopyFn cp, WriteFn wr, feature_status::LogFn sin
     const char* bad = nullptr;
     e.pins_ok = native_pins::verify_set(cp, base, names, sizeof names / sizeof names[0], &bad);
     uint16_t act = 0xffff;                                                       // DAT_145ceb488 = jump action index (cb7)
-    e.have_jump_action = e.pins_ok && copy_checked(cp, &act, at(base, 0, 0, 0x5ceb488), 2) && act != 0xffff;
+    e.have_jump_action = e.pins_ok && copy_checked(cp, &act, at(base, 0, 0, 0x5ce6598), 2) && act != 0xffff;
     e.jump_action = act;
     uint16_t dact = 0xffff;                                                      // DAT_145ceb490 = dodge/dash action index (cb9)
-    e.have_dodge_action = e.pins_ok && copy_checked(cp, &dact, at(base, 0, 0, 0x5ceb490), 2) && dact != 0xffff;
+    e.have_dodge_action = e.pins_ok && copy_checked(cp, &dact, at(base, 0, 0, 0x5ce65a0), 2) && dact != 0xffff;
     e.dodge_action = dact;
     if (!e.pins_ok) {
         char why[96]; std::snprintf(why, sizeof why, "pin_mismatch:%s", bad ? bad : "?");

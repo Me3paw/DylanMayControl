@@ -98,13 +98,14 @@
                         disable(); return;
                     }
                     model = packet.model;
-                    if (uncertain) { ui.publish(null); ui.setOpeningAllowed(false); }
-                    else { ui.publish(model); ui.setOpeningAllowed(packet.opening_allowed === true); }
+                    if (uncertain) { ui.publish(null, false); }
+                    else { ui.publish(model, packet.opening_allowed === true); }
                 }, function () { modelBusy = false; disable(); });
             } catch (error) { modelBusy = false; disable(); }
         }
         var host = {
             imageProbe: function(channel,status,width,height,uri) {
+                if(root.__crmod_diagnostics===false)return;
                 if(!alive || !generation) return;
                 try {call("cr.host.image.v1:"+generation+":"+channel+":"+status+":"+width+":"+height+":"+uri).then(function(){},function(){});} catch(error) {}
             },
@@ -113,6 +114,7 @@
             getBindings: function (done) { return bindingsCall("cr.host.bindings.v1:" + generation, done); },
             navigation:function(open,kind){return bindingsCall("cr.host.navigation.v1:"+generation+":"+(open?"1":"0")+":"+(kind||0));},
             navigationProbe:function(kind,id,edge,active,owned){
+                if(root.__crmod_diagnostics===false)return;
                 if(!alive || !generation)return;
                 try{call('cr.host.navprobe.v1:'+generation+':'+kind+':'+id+':'+edge+':'+(active?1:0)+':'+(owned?1:0)).then(function(){},function(){});}catch(error){}
             },
@@ -160,6 +162,7 @@
                 return true;
             },
             surfaceProbe:function(stage,context,count){
+                if(root.__crmod_diagnostics===false)return false;
                 if(!alive || !generation || !Number.isInteger(stage) || stage<0 || stage>4 || !Number.isInteger(context) || context<0 || context>2147483647 || !Number.isInteger(count) || count<0 || count>192) return false;
                 try{call("cr.host.surface.v1:"+generation+":"+stage+":"+context+":"+count).then(function(){},function(){});return true;}catch(error){return false;}
             },
@@ -170,6 +173,7 @@
                 catch (error) { disable(); }
             }
         };
+        if(root.__crmod_diagnostics===false){delete host.imageProbe;delete host.navigationProbe;delete host.surfaceProbe;}
         function tick() {
             if (!alive || !generation) return;
             var key;

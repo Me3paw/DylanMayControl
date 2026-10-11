@@ -159,7 +159,7 @@
             else{var edge=value&~previousPad;previousPad=value;press(edge,lastSampled===null?currentValue(context):lastSampled);}
             if(closed || context===null)return; // A can destroy this adapter while opening the native picker.
             lastSampled=currentValue(context);
-            probe(Array.isArray(edges)?edges.reduce(function(all,value){return all|value;},0):value);
+            if(typeof options.probe==='function')probe(Array.isArray(edges)?edges.reduce(function(all,value){return all|value;},0):value);
         }
         return {sync:sync,input:input,close:function(){if(closed)return;closed=true;ownership(false);if(listening && root.engine && root.engine.off)root.engine.off("OnSelect",select);clear();}};
     }

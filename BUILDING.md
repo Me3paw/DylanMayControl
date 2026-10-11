@@ -1,39 +1,25 @@
-# Building DylanMayControl
+# Build DylanMayControl v1.0.3
 
-Build either supported route from the same source tree. The default is the original-DLL proxy route; `--plugin` builds the f2g plugin. The source includes the game's stock icons in `src/ui/weapon_icons.js` under the explicit third-party rights exclusion in `LICENSE`. The build does not copy or deploy game executables/archives, f2g binaries, screenshots or installation files.
-
-## Requirements
-
-On Linux: Git, a C++20 host compiler (`g++`), Node.js, Python 3, LLVM-MinGW (`x86_64-w64-mingw32-clang` and `x86_64-w64-mingw32-clang++`) and Python package `pefile` if running separate export verification. The build script expects the compiler commands on PATH.
-
-## Build the original-DLL proxy alternative
+Requirements: host C++20 g++, Node.js, Python 3, Git and LLVM-MinGW x86_64-w64-mingw32-clang/clang++ on PATH. Optional real-binary pin validation requires Python pefile. The build fetches MinHook commit 8af6b4acae5a9388fd742b56fa79ece89d96f823; its BSD notice is included.
 
 From the repository root:
 
-    ./scripts/native/build-plugin.sh
+```sh
+./scripts/native/build-plugin.sh
+./scripts/native/build-plugin.sh --plugin
+```
 
-This writes `.work/native-build/xinput1_4.dll`. Install this route only if you understand the root-DLL conflict and follow the optional Nexus file instructions. The proxy loads the system xinput1_4 backend and the mod's native service.
+The first command builds `.work/native-build/xinput1_4.dll` (native Original DLL); the second builds `.work/native-build/combatloadout.dll` (f2g). Both compile production diagnostics out. `--with-helpers` additionally compiles Win64 fixture helpers without running them. The script generates UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes.
 
-## Build the f2g plugin
+Focused layout regression:
 
-    ./scripts/native/build-plugin.sh --plugin
+```sh
+mkdir -p .work/native-build
+g++ -std=c++20 -O2 -Wall -Wextra -Werror -Isrc/native scripts/native/test_loadout_current_node.cpp -o .work/native-build/test_loadout_current_node
+.work/native-build/test_loadout_current_node
+python3 scripts/native/test_game_pins.py /path/to/your/CONTROLResonant.exe
+```
 
-This writes `.work/native-build/combatloadout.dll`, for installation as an f2g plugin.
+The exact executable pin test reads your own game binary and never runs it. The optional `api_self_check.exe --event-replay` uses synthetic native events, including protected-memory boundary failures and the updated execution-row stride. Fixtures do not prove rendering performance or full gameplay. The supplemental PhysX fixture requires `-municode` and a path to your own compatible PhysXCommon_64.dll.
 
-## Optional validation helpers
-
-    ./scripts/native/build-plugin.sh --with-helpers
-
-This additionally compiles helper executables into ignored `.work/native-build/`; it does not run gameplay tests. The script checks out MinHook at commit `8af6b4acae5a9388fd742b56fa79ece89d96f823` under ignored `.work/upstream/minhook`. Its separate BSD terms are included in this repository.
-
-Build reproducibility depends on host compiler/toolchain versions. The MinHook revision and source are pinned; resulting PE/DLL bytes may differ between compiler versions. Published artifact hashes are recorded in README.md and the corresponding Nexus release files.
-
-## Split persistence regression
-
-From the repository root, using the host C++20 compiler:
-
-    mkdir -p .work/native-build
-    g++ -std=c++20 -O2 -Wall -Wextra -Werror scripts/native/test_split_form_retention.cpp -o .work/native-build/test_split_form_retention
-    .work/native-build/test_split_form_retention
-
-This is a focused native-contract replay covering baseline deletion, both Split orderings, other finishers, independent timers, repeated activations and one-per-ID allocation. It is not a running-game test. Published v1.0.1 binaries retain their approved identities; rebuilding is optional.
+SOURCE-SHA256SUMS.txt covers code/test/UI source. Game-owned icons in src/ui/weapon_icons.js are excluded from the MIT grant. No game executable or runtime engine DLL is included.

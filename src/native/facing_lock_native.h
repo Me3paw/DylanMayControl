@@ -138,7 +138,7 @@ inline bool direction_sample(const combat_mod::ChooserArgs& args,combat_mod::Dir
         if (loan->world==s.player.location.world && loan->actor==s.player.location.actor &&
             loan->rows.combo==reinterpret_cast<uintptr_t>(args.combo_data) && loan->rows.logic==reinterpret_cast<uintptr_t>(args.state_set) &&
             loan->graph==reinterpret_cast<uintptr_t>(args.graph) && capture(again) && same(s,again) && finisher_chooser_scope::live()) {
-            *out=result; ++direction_reads; ok=true;
+            *out=result; CRMOD_DIAGNOSTIC(++direction_reads); ok=true;
         }
     }
     SetLastError(error); return ok;
@@ -151,6 +151,7 @@ inline bool arm(uint64_t base,bool native_contracts_and_module_pin_verified,cons
 }
 inline void stop() { enabled.store(false); }
 inline void flush(FILE* file) {
+    if constexpr(!diagnostics::enabled)return;
     if (!file) return;
     const auto d=direction_reads.exchange(0);
     if (d) std::fprintf(file,"{\"event\":\"locked_target_direction\",\"direction_reads\":%llu,\"direction_reference\":\"player_to_locked_target\",\"movement_writes\":false,\"continuous_facing_override\":false}\n",static_cast<unsigned long long>(d));
