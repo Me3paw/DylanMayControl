@@ -5,11 +5,11 @@ Requirements: host C++20 g++, Node.js, Python 3, Git and LLVM-MinGW x86_64-w64-m
 From the repository root:
 
 ```sh
-./scripts/native/build-plugin.sh
 ./scripts/native/build-plugin.sh --plugin
+./scripts/native/build-plugin.sh
 ```
 
-The first command builds `.work/native-build/xinput1_4.dll` (native Original DLL); the second builds `.work/native-build/combatloadout.dll` (f2g). Both compile production diagnostics out. `--with-helpers` additionally compiles Win64 fixture helpers without running them. The script generates UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes.
+The first command builds the recommended `.work/native-build/combatloadout.dll` (f2g); the second builds the Optional `.work/native-build/xinput1_4.dll` (native Original DLL). Both compile production diagnostics out. `--with-helpers` additionally compiles Win64 fixture helpers without running them. The script generates UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes.
 
 Focused layout regression:
 
