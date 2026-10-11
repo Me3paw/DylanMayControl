@@ -14,7 +14,7 @@
 #include "native_ui_invoke_probe.h"
 #include "native_ui_echo.h"
 #include "loadout_attack_probe.h"
-#include "../../.work/native-build/loadout_assets.h"
+#include <loadout_assets.h>
 #include "native_ui_transport.h"
 #include "selection_observer.h"
 #include "directional_input_log.h"
@@ -23,7 +23,9 @@ static HMODULE self_module, backend;
 static INIT_ONCE init_once = INIT_ONCE_STATIC_INIT;
 static SRWLOCK input_lock = SRWLOCK_INIT;
 static std::atomic<bool> stopping{false}, enabled{true};
+#if CRMOD_DIAGNOSTICS
 static std::atomic<unsigned long> polls{0}, poll_thread{0};
+#endif
 static bool controlled = false;
 static DWORD selected = 0;
 static bool automation_enabled = false;
@@ -68,8 +70,10 @@ static void publish_menu_state(DWORD index,DWORD result,XINPUT_STATE* state,bool
 }
 static ULONGLONG expires = 0;
 static XINPUT_GAMEPAD pad{};
+#if CRMOD_DIAGNOSTICS
 static BYTE secret[16];
 static wchar_t log_path[32768];
+#endif
 
 struct Command { uint32_t op, index, lease; XINPUT_GAMEPAD pad; };
 static_assert(sizeof(Command) == 24);
@@ -84,7 +88,7 @@ static void neutral() {
 #ifdef CRMOD_API_SELF_CHECK
 static void (*pass_test_barrier)() = nullptr;
 #endif
-static bool pass_through() {
+[[maybe_unused]] static inline bool pass_through() {
 #ifdef CRMOD_API_SELF_CHECK
     if (pass_test_barrier) pass_test_barrier();
 #endif
@@ -106,9 +110,13 @@ static void sample_loadout_cycle_keys(FILE* log) {
         ReleaseSRWLockShared(&loadout_player_catalogue::state_lock);
     }
     loadout_key_requests::sample(context,available,backend);
+#if CRMOD_DIAGNOSTICS
     const unsigned state=(available?1:0)|(mod_bindings::panel_open.load()?2:0)|(mod_bindings::menu_owned.load()?4:0)|(mod_bindings::capturing.load()?8:0);
     static unsigned previous=UINT_MAX,records=0;
     if(log && state!=previous && records<256){previous=state;++records;std::fprintf(log,"{\"event\":\"controller_menu_input\",\"catalogue_available\":%s,\"panel_open\":%s,\"mod_focus_owned\":%s,\"capturing\":%s,\"input_sampling_allowed\":%s,\"raw_buttons\":%u}\n",state&1?"true":"false",state&2?"true":"false",state&4?"true":"false",state&8?"true":"false",loadout_key_requests::input_available(context,available)?"true":"false",mod_bindings::last_pad.load());}
+#else
+    (void)log;
+#endif
     mod_bindings::persist();
 }
 static void stop_bridge() {
@@ -132,6 +140,7 @@ static void stop_bridge() {
     native_ui_invoke_probe::stop();
 }
 
+#if CRMOD_DIAGNOSTICS
 static bool receive(SOCKET s, void* data, int size, DWORD deadline_ms) {
     const ULONGLONG deadline = GetTickCount64() + deadline_ms;
     int done = 0;
@@ -155,6 +164,28 @@ static bool reply(SOCKET s, const char* text) {
     return true;
 }
 
+#endif
+
+static void stop_services() {
+    loadout_player_catalogue::stop();
+    loot_multiplier::enabled.store(false);
+    gameplay_runtime::stop();
+    loadout_lookup_probe::stop();
+    loadout_selection_scope::stop();
+    loadout_lua_activation::stop();
+    loadout_selection_bridge::stop();
+    loadout_native_selection::stop();
+    selection_observer::stop();
+    loadout_mod::stop();
+    loadout_attack_probe::stop();
+    native_ui_probe::stop();
+    native_ui_transport::stop();
+    native_ui_echo::stop();
+    native_ui::sdk::stop();
+    native_ui_invoke_probe::stop();
+}
+
+#if CRMOD_DIAGNOSTICS
 static DWORD WINAPI service(void* reference) {
     FILE* log = _wfopen(log_path, L"w");
     if(!log && !automation_enabled)log=_wfopen(L"NUL",L"w");
@@ -163,6 +194,7 @@ static DWORD WINAPI service(void* reference) {
     bool network = false;
     if (!log) goto end;
     if (!automation_enabled) {
+        performance_log::start(log,_wcsicmp(log_path,L"NUL")!=0);
         mod_bindings::start();
         directional_input_log::start(log,backend);
         fprintf(log, "{\"event\":\"manual_session\",\"pid\":%lu,\"combat_writes\":false,\"synthetic_input\":false,\"backend_verified\":%s}\n",
@@ -170,7 +202,9 @@ static DWORD WINAPI service(void* reference) {
         fflush(log);
         selection_observer::start(log, stopping, true,backend);
         while (!stopping.load()) {
-            gameplay_runtime::tick();
+            { performance_log::Scope timing(performance_log::Phase::Tick); gameplay_runtime::tick(); }
+            {
+            performance_log::Scope timing(performance_log::Phase::Flush);
             gameplay_runtime::flush(log);
             loot_multiplier::flush(log);
             selection_observer::flush(log);
@@ -185,12 +219,18 @@ static DWORD WINAPI service(void* reference) {
             native_ui_invoke_probe::flush(log);
             native_ui_echo::flush(log);
             native_ui_transport::flush(log);
+            }
             for (unsigned sample=0;sample<10 && !stopping.load();++sample) {
+                {
+                performance_log::Scope timing(performance_log::Phase::InputSample);
                 sample_loadout_cycle_keys(log);
                 directional_input_log::sample(log);
+                }
                 Sleep(10);
             }
+            performance_log::report(log);
         }
+        performance_log::report(log,true);
         mod_bindings::persist(true);
         goto end;
     }
@@ -303,22 +343,7 @@ static DWORD WINAPI service(void* reference) {
         }
     }
 end:
-    loadout_player_catalogue::stop();
-    loot_multiplier::enabled.store(false);
-    gameplay_runtime::stop();
-    loadout_lookup_probe::stop();
-    loadout_selection_scope::stop();
-    loadout_lua_activation::stop();
-    loadout_selection_bridge::stop();
-    loadout_native_selection::stop();
-    selection_observer::stop();
-    loadout_mod::stop();
-    loadout_attack_probe::stop();
-    native_ui_probe::stop();
-    native_ui_transport::stop();
-    native_ui_echo::stop();
-    native_ui::sdk::stop();
-    native_ui_invoke_probe::stop();
+    stop_services();
     if (log) selection_observer::flush(log);
     loadout_lua_activation::flush(log);
     loadout_selection_bridge::flush(log);
@@ -348,6 +373,20 @@ end:
     if (log) { fprintf(log, "{\"event\":\"stopped\",\"polls\":%lu}\n", polls.load()); fclose(log); }
     FreeLibraryAndExitThread(static_cast<HMODULE>(reference), 0);
 }
+#else
+static DWORD WINAPI service(void* reference) {
+    mod_bindings::start();
+    selection_observer::start(nullptr,stopping,true,backend);
+    while(!stopping.load()) {
+        sample_loadout_cycle_keys(nullptr);
+        Sleep(10);
+    }
+    mod_bindings::persist(true);
+    stop_services();
+    neutral();
+    FreeLibraryAndExitThread(static_cast<HMODULE>(reference),0);
+}
+#endif
 
 static BOOL CALLBACK initialize(PINIT_ONCE, PVOID, PVOID*) {
     wchar_t directory[MAX_PATH];
@@ -357,6 +396,7 @@ static BOOL CALLBACK initialize(PINIT_ONCE, PVOID, PVOID*) {
         backend = LoadLibraryW(directory);
         if (backend == self_module) { FreeLibrary(backend); backend = nullptr; }
     }
+#if CRMOD_DIAGNOSTICS
     char token[33]{};
     SetLastError(ERROR_SUCCESS);
     DWORD token_size = GetEnvironmentVariableA("CRMOD_TOKEN", token, sizeof(token));
@@ -388,6 +428,15 @@ static BOOL CALLBACK initialize(PINIT_ONCE, PVOID, PVOID*) {
         }
         automation_enabled = true;
     }
+#else
+    wchar_t config[32768];
+    const DWORD length=GetModuleFileNameW(nullptr,config,32768);
+    if(!length || length>=32768)return TRUE;
+    wchar_t* separator=wcsrchr(config,L'\\');
+    if(!separator || separator-config>32768-32)return TRUE;
+    separator[1]=L'\0';wcscat(config,L"crmod.ini");
+    if(!GetPrivateProfileIntW(L"Mod",L"Enabled",1,config))return TRUE;
+#endif
     HMODULE reference = nullptr;
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
                            reinterpret_cast<LPCWSTR>(&initialize), &reference)) return TRUE;
@@ -411,9 +460,12 @@ static bool synthetic(DWORD index) {
 extern "C" DWORD WINAPI XInputGetState(DWORD index, XINPUT_STATE* state) {
     if (!state || index >= XUSER_MAX_COUNT) return ERROR_BAD_ARGUMENTS;
     auto fn = real<decltype(&XInputGetState)>("XInputGetState");
-    ++polls; poll_thread.store(GetCurrentThreadId());
+    CRMOD_DIAGNOSTIC(++polls;poll_thread.store(GetCurrentThreadId()));
     XINPUT_STATE native{};
     DWORD result = fn ? fn(index, &native) : ERROR_DEVICE_NOT_CONNECTED;
+#if CRMOD_DIAGNOSTICS
+    performance_log::Scope timing(performance_log::Phase::InputFilter);
+#endif
     DWORD native_packet = native.dwPacketNumber;
     *state = native;
     const bool modal=mod_bindings::panel_open.load() &&

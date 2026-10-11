@@ -27,7 +27,7 @@ if [[ ! -d "$MINHOOK/.git" ]]; then
 fi
 git -C "$MINHOOK" fetch --depth=1 origin "$MINHOOK_COMMIT"
 git -C "$MINHOOK" checkout --detach "$MINHOOK_COMMIT"
-g++ -std=c++20 -O2 -Wall -Wextra -Werror scripts/native/emit_ui_bootstrap.cpp -o "$BUILD/emit_ui_bootstrap"
+g++ -std=c++20 -O2 -Wall -Wextra -Werror -DCRMOD_DIAGNOSTICS=0 scripts/native/emit_ui_bootstrap.cpp -o "$BUILD/emit_ui_bootstrap"
 "$BUILD/emit_ui_bootstrap" > "$BUILD/loadout-bootstrap.js"
 node --check "$BUILD/loadout-bootstrap.js"
 python3 -B - <<'PYGEN'
@@ -45,16 +45,16 @@ for unit in buffer hook trampoline hde/hde64; do
 done
 definition=src/native/xinput_proxy.def
 output="$BUILD/xinput1_4.dll"
-defines=()
+defines=(-DCRMOD_DIAGNOSTICS=0 -I"$BUILD")
 if "$plugin"; then
   definition=src/native/plugin.def
   output="$BUILD/combatloadout.dll"
-  defines=(-DCRMOD_PLUGIN)
+  defines+=(-DCRMOD_PLUGIN)
 fi
 x86_64-w64-mingw32-clang++ -std=c++20 -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -static "${defines[@]}" -I"$MINHOOK/include" -shared src/native/xinput_proxy.cpp "$definition" "${objects[@]}" -lws2_32 -ladvapi32 -o "$output"
 if "$helpers"; then
   x86_64-w64-mingw32-clang++ -std=c++20 -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -static -municode src/native/diagnostic_fixture.cpp -o "$BUILD/diagnostic_fixture.exe"
-  x86_64-w64-mingw32-clang++ -std=c++20 -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -static -I"$MINHOOK/include" -municode -DCRMOD_API_SELF_CHECK src/native/api_self_check.cpp "${objects[@]}" -lws2_32 -ladvapi32 -o "$BUILD/api_self_check.exe"
+  x86_64-w64-mingw32-clang++ -std=c++20 -O2 -Wall -Wextra -Werror -fno-exceptions -fno-rtti -static -I"$MINHOOK/include" -municode -DCRMOD_API_SELF_CHECK -DCRMOD_DIAGNOSTICS=0 -I"$BUILD" src/native/api_self_check.cpp "${objects[@]}" -lws2_32 -ladvapi32 -o "$BUILD/api_self_check.exe"
 fi
 sha256sum "$output"
 echo "Built $output; no game files were changed."

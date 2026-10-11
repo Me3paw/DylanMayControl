@@ -1,39 +1,11 @@
-# Building DylanMayControl
+# Build the optimized Original DLL
 
-Build either supported route from the same source tree. The default is the original-DLL proxy route; `--plugin` builds the f2g plugin. The source includes the game's stock icons in `src/ui/weapon_icons.js` under the explicit third-party rights exclusion in `LICENSE`. The build does not copy or deploy game executables/archives, f2g binaries, screenshots or installation files.
+Requirements: a C++20 host compiler (g++), Node.js, Python3, Git and LLVM-MinGW x86_64-w64-mingw32-clang/clang++ on PATH. The build fetches pinned MinHook commit8af6b4acae5a9388fd742b56fa79ece89d96f823 under ignored .work/upstream/minhook; its separate BSD license is included.
 
-## Requirements
+Run ./scripts/native/build-plugin.sh from this directory. It creates .work/native-build/xinput1_4.dll and generated UI assets without installing or launching the game. Optional --with-helpers builds Win64 fixtures; it does not run them. Production diagnostics are explicitly compiled0. Compiler/toolchain differences can change binary bytes.
 
-On Linux: Git, a C++20 host compiler (`g++`), Node.js, Python 3, LLVM-MinGW (`x86_64-w64-mingw32-clang` and `x86_64-w64-mingw32-clang++`) and Python package `pefile` if running separate export verification. The build script expects the compiler commands on PATH.
+The source also retains the developer --plugin build option, but this release distributes/tests the Original DLL route only; do not treat a newly rebuilt f2g binary as independently gameplay verified. Existing public Main/f2g stays1.0.1.
 
-## Build the original-DLL proxy alternative
+The included test sources exercise native contracts through simulated events and protected-memory failures; they cannot reproduce full rendering/streaming or prove a gameplay FPS target. Source checksums are in SOURCE-SHA256SUMS.txt. src/ui/weapon_icons.js embeds game-owned images excluded from the MIT grant.
 
-From the repository root:
-
-    ./scripts/native/build-plugin.sh
-
-This writes `.work/native-build/xinput1_4.dll`. Install this route only if you understand the root-DLL conflict and follow the optional Nexus file instructions. The proxy loads the system xinput1_4 backend and the mod's native service.
-
-## Build the f2g plugin
-
-    ./scripts/native/build-plugin.sh --plugin
-
-This writes `.work/native-build/combatloadout.dll`, for installation as an f2g plugin.
-
-## Optional validation helpers
-
-    ./scripts/native/build-plugin.sh --with-helpers
-
-This additionally compiles helper executables into ignored `.work/native-build/`; it does not run gameplay tests. The script checks out MinHook at commit `8af6b4acae5a9388fd742b56fa79ece89d96f823` under ignored `.work/upstream/minhook`. Its separate BSD terms are included in this repository.
-
-Build reproducibility depends on host compiler/toolchain versions. The MinHook revision and source are pinned; resulting PE/DLL bytes may differ between compiler versions. Published artifact hashes are recorded in README.md and the corresponding Nexus release files.
-
-## Split persistence regression
-
-From the repository root, using the host C++20 compiler:
-
-    mkdir -p .work/native-build
-    g++ -std=c++20 -O2 -Wall -Wextra -Werror scripts/native/test_split_form_retention.cpp -o .work/native-build/test_split_form_retention
-    .work/native-build/test_split_form_retention
-
-This is a focused native-contract replay covering baseline deletion, both Split orderings, other finishers, independent timers, repeated activations and one-per-ID allocation. It is not a running-game test. Published v1.0.1 binaries retain their approved identities; rebuilding is optional.
+The supplemental test_entity_sdk.cpp fixture requires -municode and an explicit path argument to a compatible PhysXCommon_64.dll from your own game installation. No game binary is bundled and no local installation path is hardcoded.

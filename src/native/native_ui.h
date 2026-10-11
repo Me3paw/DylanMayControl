@@ -1,5 +1,6 @@
 // Scalar UI transport. Native script/handler/lifecycle bindings are still required.
 #pragma once
+#include "diagnostics.h"
 #include "loadout_control.h"
 #include <array>
 #include <atomic>
@@ -32,6 +33,7 @@ inline std::string make_owned_bootstrap(std::string_view panel_js, std::string_v
     }
     quoted += '"';
     std::string script(icons_js);script+='\n';script+=panel_js;
+    script += diagnostics::enabled ? "\nwindow.__crmod_diagnostics=true;" : "\nwindow.__crmod_diagnostics=false;";
     script += "\n;(function(root,css){'use strict';";
     script += R"JS(
 function mount() {
@@ -152,6 +154,7 @@ function mount() {
         var view={slot:slot,image:image,state:state,uri:null,name:'',queued:false,failed:false,channel:h,wasQueued:false,activeId:null,token:0};
         (function(view) {
             function report(status) {
+                if(root.__crmod_diagnostics===false)return;
                 if(nativeHost && typeof nativeHost.imageProbe==='function') nativeHost.imageProbe(view.channel,status===1 && imageSource(view.uri)!==view.uri?4:status,
                     Math.max(0,Math.min(8192,Math.round(view.image.offsetWidth||0))),Math.max(0,Math.min(8192,Math.round(view.image.offsetHeight||0))),view.uri||'');
             }
@@ -167,6 +170,7 @@ function mount() {
     }
     refreshOpening();
     function inspectNativeImages() {
+        if(root.__crmod_diagnostics===false)return;
         if(!allowed || !nativeHost || typeof nativeHost.imageProbe!=='function' || nativeImageReports>=64) return;
         var images=document.querySelectorAll('img');
         for(var i=0;i<images.length && i<512 && nativeImageReports<64;i+=1) {
@@ -270,15 +274,23 @@ function mount() {
             event.preventDefault();event.stopPropagation();panelHost.exit();
         };
         if(escapeHandler)document.addEventListener('keydown',escapeHandler,true);
-        if(root.CRLoadoutNativeNavigation){navigation=root.CRLoadoutNativeNavigation.create(option?document.getElementById('cr-loadout-panel'):anchor,function(stage,context,count){if(nativeHost && nativeHost.surfaceProbe)nativeHost.surfaceProbe(stage,context,count);},{contextModel:option?'ui_menu_navigation_'+option.group+'_id':null,ownership:function(owned){if(openingHost.navigation)openingHost.navigation(owned,option?option.group==='controls'?1:2:0);},probe:function(kind,id,edge,active,owned){if(openingHost.navigationProbe)openingHost.navigationProbe(kind,id,edge,active,owned);}});navigation.sync();}
+        if(root.CRLoadoutNativeNavigation){navigation=root.CRLoadoutNativeNavigation.create(option?document.getElementById('cr-loadout-panel'):anchor,root.__crmod_diagnostics===false?null:function(stage,context,count){if(nativeHost && nativeHost.surfaceProbe)nativeHost.surfaceProbe(stage,context,count);},{contextModel:option?'ui_menu_navigation_'+option.group+'_id':null,ownership:function(owned){if(openingHost.navigation)openingHost.navigation(owned,option?option.group==='controls'?1:2:0);},probe:root.__crmod_diagnostics===false?null:function(kind,id,edge,active,owned){if(openingHost.navigationProbe)openingHost.navigationProbe(kind,id,edge,active,owned);}});navigation.sync();}
     }
     function menuOwnership(){
         if(!nativeHost||typeof nativeHost.menu!=='function')return;
         var open=allowed||browserVisible()||value('ui_stacks_menu_options_active')===true||value('ui_stacks_game_states_system_menu_current')===true;
         if(open!==menuSent){menuSent=open;nativeHost.menu(open);}
     }
-    function publish(value){model=value;refreshPicker();refreshHud();attach();menuOwnership();}
-    function opening(value){allowed=value===true;if(allowed)root.setTimeout(inspectNativeImages,0);refreshOpening();}
+    function publish(value,openingAllowed){
+        model=value;refreshPicker();refreshOpening();
+        // Native picker callbacks may change opening during refresh; apply the packet last.
+        if(arguments.length>1){
+            var next=openingAllowed===true;
+            if(next && root.__crmod_diagnostics!==false)root.setTimeout(inspectNativeImages,0);
+            if(allowed!==next){allowed=next;refreshOpening();}
+        }
+    }
+    function opening(value){allowed=value===true;if(allowed && root.__crmod_diagnostics!==false)root.setTimeout(inspectNativeImages,0);refreshOpening();}
     function refreshOpening(){refreshHud();attach();menuOwnership();}
     function host(value){gateNativeInput();if(nativeHost&&typeof nativeHost.menu==='function')nativeHost.menu(false);menuSent=null;close();stopPicker();if(pickerListening && root.engine && root.engine.off){root.engine.off('loadout_browser_slot_click',browserChoice);document.removeEventListener('click',pickerClick,true);pickerListening=false;}nativeHost=value && typeof value.send==='function' && typeof value.onClose==='function'?value:null;if(nativeHost && root.engine && root.engine.on){root.engine.on('loadout_browser_slot_click',browserChoice);document.addEventListener('click',pickerClick,true);pickerListening=true;}refreshOpening();}
     root.__cr_loadout_v1 = {
@@ -496,8 +508,8 @@ inline std::atomic<std::uintptr_t> listener_key{0}, view_key{0};
 inline std::atomic<std::uint64_t> generation{0}, next_generation{0}, issued_generation{0};
 inline std::atomic<bool> dom_seen{false};
 struct CallbackScope {
-    CallbackScope() { ++callbacks; }
-    ~CallbackScope() { --callbacks; }
+    CallbackScope() { CRMOD_DIAGNOSTIC(++callbacks); }
+    ~CallbackScope() { CRMOD_DIAGNOSTIC(--callbacks); }
 };
 struct Borrowed { void* view = nullptr; std::uintptr_t listener = 0; };
 inline bool lifecycle_active() {
@@ -666,6 +678,7 @@ inline void stop() {
     // State, script, module and trampolines remain pinned through process exit.
 }
 inline void flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return;
     if (!log) return;
     // Diagnostic scalars only: these are not a coherent game ownership snapshot.
     static std::uint64_t previous_generation = UINT64_MAX, previous_issued = UINT64_MAX;

@@ -43,6 +43,7 @@ static unsigned count;
 
 static void record(unsigned kind, uint64_t call, uint32_t id, uint16_t stage,
                    void* first, void* second = nullptr) {
+    if constexpr(!diagnostics::enabled)return;
     if (!recording.load()) return;
     // Bound hot diagnostic traffic; native commit records remain available.
     if (kind==2 || kind==3) {
@@ -83,6 +84,7 @@ static void record(unsigned kind, uint64_t call, uint32_t id, uint16_t stage,
     SetLastError(error);
 }
 static void commit(uint32_t id, void* graph, void* context) {
+    if constexpr(!diagnostics::enabled){original_commit(id,graph,context);return;}
     uint64_t call = ++calls;
     record(0, call, id, 0, graph, context);
     loadout_selection_scope::observe_choice(id, graph, context, false);
@@ -102,7 +104,7 @@ static uint8_t* form_lookup(uint8_t* out, const uint32_t* id, const void* cfg) {
     return result;
 }
 static void ui_setup(void* object, void* view) {
-    native_ui_probe::observe(view);
+    if constexpr(diagnostics::enabled)native_ui_probe::observe(view);
     native_ui::sdk::on_current_view(view);
     original_ui_setup(object, view);
 }
@@ -117,7 +119,9 @@ static void stop() {
     while (attempts.load()) Sleep(1);
     // Hooks, trampolines and the pinned module survive until process exit.
 }
-static void flush(FILE* log) {
+static inline void flush(FILE* log) {
+#if CRMOD_DIAGNOSTICS
+    if constexpr(!diagnostics::enabled)return;
     Record rows[256];
     AcquireSRWLockExclusive(&queue_lock);
     unsigned size = count;
@@ -126,12 +130,15 @@ static void flush(FILE* log) {
     ReleaseSRWLockExclusive(&queue_lock);
     for (unsigned i = 0; i < size; ++i) {
         const auto& r = rows[i];
-        fprintf(log, "{\"event\":\"selection_observation\",\"kind\":%u,\"call\":%llu,\"qpc\":%llu,\"thread\":%lu,\"first\":%llu,\"second\":%llu,\"id\":%u,\"stage\":%u,\"raw_flags\":%u}\n",
-                r.kind, r.call, r.qpc, r.thread, r.first, r.second, r.id, r.stage, r.flags);
+        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"selection_observation\",\"kind\":%u,\"call\":%llu,\"qpc\":%llu,\"thread\":%lu,\"first\":%llu,\"second\":%llu,\"id\":%u,\"stage\":%u,\"raw_flags\":%u}\n",
+                r.kind, r.call, r.qpc, r.thread, r.first, r.second, r.id, r.stage, r.flags));
     }
     uint64_t lost = dropped.exchange(0);
-    if (lost) fprintf(log, "{\"event\":\"selection_observation_dropped\",\"count\":%llu}\n", lost);
-    if (size || lost) fflush(log);
+    if (lost) CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"selection_observation_dropped\",\"count\":%llu}\n", lost));
+    if (size || lost) CRMOD_DIAGNOSTIC(fflush(log));
+#else
+    (void)log;
+#endif
 }
 
 static bool main_exe_matches() {
@@ -230,6 +237,7 @@ static bool loaded_targets(void** commit_target, void** setter_target, void** fo
     return false;
 }
 static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requested = false, HMODULE input_backend=nullptr) {
+    (void)log;
     char option[2]{};
     if (!manual_requested &&
         (GetEnvironmentVariableA("CRMOD_OBSERVE_SELECTION", option, sizeof(option)) != 1 || option[0] != '1')) return;
@@ -242,28 +250,28 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
     const bool scope_probe = true; // Current native selection execution loan.
     const bool lookup_probe = true; // Current native selection execution loan.
     if (lookup_probe && !scope_probe) {
-        fprintf(log, "{\"event\":\"loadout_lookup_probe\",\"status\":\"scope_probe_required\"}\n");
-        fflush(log); return;
+        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"loadout_lookup_probe\",\"status\":\"scope_probe_required\"}\n"));
+        CRMOD_DIAGNOSTIC(fflush(log)); return;
     }
     char actor_option[2]{};
-    const bool actor_probe = GetEnvironmentVariableA("CRMOD_OBSERVE_ACTOR", actor_option, sizeof(actor_option)) == 1 && actor_option[0] == '1';
+    const bool actor_probe = diagnostics::enabled && GetEnvironmentVariableA("CRMOD_OBSERVE_ACTOR", actor_option, sizeof(actor_option)) == 1 && actor_option[0] == '1';
     char ui_option[2]{};
-    const bool passive_ui = GetEnvironmentVariableA("CRMOD_OBSERVE_UI", ui_option, sizeof(ui_option)) == 1 && ui_option[0] == '1';
+    const bool passive_ui = diagnostics::enabled && GetEnvironmentVariableA("CRMOD_OBSERVE_UI", ui_option, sizeof(ui_option)) == 1 && ui_option[0] == '1';
     const bool bootstrap_ui = true; // Ordinary feature UI, guarded by exact native contracts.
     const bool invoke_probe = true; // Ordinary feature UI, guarded by exact native contracts.
     const bool echo_probe = true; // Ordinary feature UI, guarded by exact native contracts.
     if (echo_probe && !invoke_probe) {
-        fprintf(log, "{\"event\":\"native_ui_echo\",\"status\":\"invoke_probe_required\"}\n");
-        fflush(log);
+        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_echo\",\"status\":\"invoke_probe_required\"}\n"));
+        CRMOD_DIAGNOSTIC(fflush(log));
         return;
     }
     if (invoke_probe && !bootstrap_ui) {
-        fprintf(log, "{\"event\":\"native_ui_invoke_probe\",\"status\":\"bootstrap_required\"}\n");
-        fflush(log);
+        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_invoke_probe\",\"status\":\"bootstrap_required\"}\n"));
+        CRMOD_DIAGNOSTIC(fflush(log));
         return;
     }
     const bool observe_ui = passive_ui || bootstrap_ui;
-    const char* status = "executable_mismatch";
+    [[maybe_unused]] const char* status = "executable_mismatch";
     MH_STATUS hook_status = MH_UNKNOWN;
     if (main_exe_matches()) {
         status = "loaded_bytes_mismatch";
@@ -272,30 +280,30 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
             if (bootstrap_ui) {
                 const auto guard = native_ui_guard::verify(true);
                 if (!native_ui::sdk::prepare(guard, cr_loadout_script, stopping)) {
-                    fprintf(log, "{\"event\":\"native_ui_bootstrap\",\"status\":\"guard_rejected\"}\n");
-                    fflush(log);
+                    CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_bootstrap\",\"status\":\"guard_rejected\"}\n"));
+                    CRMOD_DIAGNOSTIC(fflush(log));
                     return;
                 }
                 if (invoke_probe) {
                     if (!native_ui_invoke_probe::prepare(true, native_ui_guard::verify_registration(guard))) {
                         native_ui::sdk::stop();
-                        fprintf(log, "{\"event\":\"native_ui_invoke_probe\",\"status\":\"guard_rejected\"}\n");
-                        fflush(log);
+                        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_invoke_probe\",\"status\":\"guard_rejected\"}\n"));
+                        CRMOD_DIAGNOSTIC(fflush(log));
                         return;
                     }
                     native_ui::sdk::before_script = &native_ui_invoke_probe::register_current;
                     if (echo_probe) {
                         if (!native_ui_echo::prepare(true)) {
                             native_ui_invoke_probe::stop(); native_ui::sdk::stop();
-                            fprintf(log, "{\"event\":\"native_ui_echo\",\"status\":\"guard_rejected\"}\n");
-                            fflush(log);
+                            CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_echo\",\"status\":\"guard_rejected\"}\n"));
+                            CRMOD_DIAGNOSTIC(fflush(log));
                             return;
                         }
                         if (!native_ui_transport::prepare()) {
                             native_ui_transport::stop(); native_ui_echo::stop();
                             native_ui_invoke_probe::stop(); native_ui::sdk::stop();
-                            fprintf(log, "{\"event\":\"native_ui_transport\",\"status\":\"guard_rejected\"}\n");
-                            fflush(log); return;
+                            CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"native_ui_transport\",\"status\":\"guard_rejected\"}\n"));
+                            CRMOD_DIAGNOSTIC(fflush(log)); return;
                         }
                     }
                 }
@@ -321,8 +329,8 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                 if (lookup_probe) {
                     if (!loadout_lookup_probe::prepare(true,
                             reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr)),true,true,true)) {
-                        fprintf(log, "{\"event\":\"loadout_lookup_probe\",\"status\":\"guard_rejected\"}\n");
-                        fflush(log); return;
+                        CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"loadout_lookup_probe\",\"status\":\"guard_rejected\"}\n"));
+                        CRMOD_DIAGNOSTIC(fflush(log)); return;
                     }
                     loadout_selection_scope::lookup_observer=&loadout_lookup_probe::observe;
                 }
@@ -340,7 +348,7 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                 }();
                 bool hold_ready=chooser_probe;
                 for (const auto& hook:hold_hooks) hold_ready=hold_ready&&matches(hook.rva,hook.pin);
-                const bool geometry_ready=chooser_probe && matches(0x22792a0,
+                const bool geometry_ready=diagnostics::enabled && chooser_probe && matches(0x22792a0,
                     "48895c240848896c2418565741564883ec40c5f82974243049");
                 const bool finisher_commit_ready=chooser_probe &&
                     matches(0x235e6c0,"488bc44c89401848895010534881ec300100004c8b59484d8b") &&
@@ -445,9 +453,9 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     loadout_selection_scope::after_original=&loadout_selection_bridge::after_original;
                     loadout_player_catalogue::adapter_factory=&loadout_selection_bridge::make_adapter;
                 }
-                if (hook_status == MH_OK) hook_status = MH_CreateHook(setter_target, reinterpret_cast<void*>(&setter), &setter_original);
+                if (diagnostics::enabled && hook_status == MH_OK) hook_status = MH_CreateHook(setter_target, reinterpret_cast<void*>(&setter), &setter_original);
                 original_setter = reinterpret_cast<Setter>(setter_original);
-                if (hook_status == MH_OK) hook_status = MH_CreateHook(form_target, reinterpret_cast<void*>(&form_lookup), &form_original);
+                if (diagnostics::enabled && hook_status == MH_OK) hook_status = MH_CreateHook(form_target, reinterpret_cast<void*>(&form_lookup), &form_original);
                 original_form_lookup = reinterpret_cast<FormLookup>(form_original);
                 if (hook_status == MH_OK && actor_probe)
                     hook_status = MH_CreateHook(actor_target, reinterpret_cast<void*>(&loadout_attack_probe::forms),
@@ -486,8 +494,8 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                 if (hook_status==MH_OK && chooser_probe)
                     hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(
                         reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr))+finisher_binding::kRvaChooser));
-                if (hook_status == MH_OK) hook_status = MH_QueueEnableHook(setter_target);
-                if (hook_status == MH_OK) hook_status = MH_QueueEnableHook(form_target);
+                if (diagnostics::enabled && hook_status == MH_OK) hook_status = MH_QueueEnableHook(setter_target);
+                if (diagnostics::enabled && hook_status == MH_OK) hook_status = MH_QueueEnableHook(form_target);
                 if (hook_status == MH_OK && actor_probe) hook_status = MH_QueueEnableHook(actor_target);
                 if (hook_status == MH_OK && scope_probe) hook_status = MH_QueueEnableHook(scope_target);
                 if (hook_status == MH_OK && observe_ui) hook_status = MH_QueueEnableHook(ui_target);
@@ -520,24 +528,26 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                 split_form_retention::executable_base=game_base;
                 split_form_retention::stopping=&stopping;
                 split_form_retention::enabled.store(hook_status==MH_OK && split_ready);
-                std::fprintf(log,"{\"event\":\"split_form_retention\",\"armed\":%s,\"native_lifetime\":true}\n",
-                    split_form_retention::enabled.load()?"true":"false");
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"split_form_retention\",\"armed\":%s,\"native_lifetime\":true}\n",
+                    split_form_retention::enabled.load()?"true":"false"));
                 controller_menu_input::enabled.store(hook_status==MH_OK);
 #ifdef CRMOD_PLUGIN
-                std::fprintf(log,"{\"event\":\"controller_menu_filter\",\"armed\":%s,\"raw_sampler_uses_trampoline\":true}\n",controller_menu_input::enabled.load()?"true":"false");
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"controller_menu_filter\",\"armed\":%s,\"raw_sampler_uses_trampoline\":true}\n",controller_menu_input::enabled.load()?"true":"false"));
 #endif
                 loot_multiplier::enabled.store(hook_status==MH_OK && loot_ready);
-                std::fprintf(log,"{\"event\":\"loot_binding\",\"armed\":%s}\n",loot_multiplier::enabled.load()?"true":"false");
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"loot_binding\",\"armed\":%s}\n",loot_multiplier::enabled.load()?"true":"false"));
                 finisher_test_mode::enabled.store(hook_status==MH_OK && finisher_test_ready && unlock_original);
-                std::fprintf(log,"{\"event\":\"finisher_test_mode\",\"enabled\":%s,\"scope\":\"six_finishers_only\",\"save_unlock_writes\":false,\"normal_release_must_disable\":true}\n",
-                    finisher_test_mode::active()?"true":"false");
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"finisher_test_mode\",\"enabled\":%s,\"scope\":\"six_finishers_only\",\"save_unlock_writes\":false,\"normal_release_must_disable\":true}\n",
+                    finisher_test_mode::active()?"true":"false"));
+#if CRMOD_DIAGNOSTICS
                 const bool geometry_armed=hook_status==MH_OK && geometry_ready && player_geometry_log::arm(true,stopping);
-                std::fprintf(log,"{\"event\":\"player_geometry_binding\",\"guard_verified\":%s,\"armed\":%s,\"writes\":false}\n",geometry_ready?"true":"false",geometry_armed?"true":"false");
+#endif
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"player_geometry_binding\",\"guard_verified\":%s,\"armed\":%s,\"writes\":false}\n",geometry_ready?"true":"false",geometry_armed?"true":"false"));
                 const bool hold_armed=hook_status==MH_OK && hold_ready &&
                     held_lock_native::arm(game_base,true,stopping);
-                std::fprintf(log,"{\"event\":\"shared_input_reader\",\"initialized\":%s,\"stomp_writes_enabled\":%s,\"stomp_hooks_installed\":%s}\n",
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"shared_input_reader\",\"initialized\":%s,\"stomp_writes_enabled\":%s,\"stomp_hooks_installed\":%s}\n",
                     step_binding::env().copy && step_binding::env().base==game_base?"true":"false",
-                    step_binding::env().write?"true":"false",step_observers_ready?"true":"false");
+                    step_binding::env().write?"true":"false",step_observers_ready?"true":"false"));
                 const bool direction_armed=hook_status==MH_OK && hold_armed && facing_lock_native::arm(game_base,true,stopping);
                 const bool turn_armed=hook_status==MH_OK && direction_armed && attack_turn_ready &&
                     attack_turn_native::arm(game_base,true,stopping);
@@ -547,20 +557,20 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                 finisher_binding::set_commit_hooks_ready(hook_status==MH_OK && finisher_commit_ready);
                 loadout_chain_switch::active=reinterpret_cast<loadout_chain_switch::Active>(game_base+0x22965b0);
                 loadout_chain_switch::enabled=hook_status==MH_OK && chain_ready;
-                std::fprintf(log,"{\"event\":\"loadout_chain_binding\",\"armed\":%s,\"handoff\":\"next_native_attack_to_new_first_entry\",\"synthetic_input\":false}\n",
-                    loadout_chain_switch::enabled?"true":"false");
-                std::fprintf(log,"{\"event\":\"finisher_dispatch_binding\",\"graph_input_guards\":%s,\"armed\":%s,\"back_turn_armed\":%s,\"unselected_same_press_verified\":false,\"movement_writes\":false}\n",
-                    finisher_commit_ready?"true":"false",(direction_armed&&finisher_commit_ready)?"true":"false",turn_armed?"true":"false");
-                std::fprintf(log,"{\"event\":\"target_direction_binding\",\"armed\":%s,\"movement_writes\":false,\"continuous_facing_override\":false}\n",direction_armed?"true":"false");
-                std::fprintf(log,"{\"event\":\"held_lock_binding\",\"guard_verified\":%s,\"armed\":%s,\"native_input_action\":true,\"direct_locked_byte_writes\":false}\n",hold_ready?"true":"false",hold_armed?"true":"false");
-                const bool activation_armed=hook_status==MH_OK && activation_ready && loadout_lua_activation::arm(stopping,true);
-                std::fprintf(log,"{\"event\":\"loadout_activation_binding\",\"guard_verified\":%s,\"armed\":%s,\"callback_chain_limit\":32,\"completion_contract\":\"native_dispatch_and_matching_preset\",\"active_weapon_verified\":false}\n",
-                    activation_ready?"true":"false",activation_armed?"true":"false");
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"loadout_chain_binding\",\"armed\":%s,\"handoff\":\"next_native_attack_to_new_first_entry\",\"synthetic_input\":false}\n",
+                    loadout_chain_switch::enabled?"true":"false"));
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"finisher_dispatch_binding\",\"graph_input_guards\":%s,\"armed\":%s,\"back_turn_armed\":%s,\"unselected_same_press_verified\":false,\"movement_writes\":false}\n",
+                    finisher_commit_ready?"true":"false",(direction_armed&&finisher_commit_ready)?"true":"false",turn_armed?"true":"false"));
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"target_direction_binding\",\"armed\":%s,\"movement_writes\":false,\"continuous_facing_override\":false}\n",direction_armed?"true":"false"));
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"held_lock_binding\",\"guard_verified\":%s,\"armed\":%s,\"native_input_action\":true,\"direct_locked_byte_writes\":false}\n",hold_ready?"true":"false",hold_armed?"true":"false"));
+                [[maybe_unused]] const bool activation_armed=hook_status==MH_OK && activation_ready && loadout_lua_activation::arm(stopping,true);
+                CRMOD_DIAGNOSTIC(std::fprintf(log,"{\"event\":\"loadout_activation_binding\",\"guard_verified\":%s,\"armed\":%s,\"callback_chain_limit\":32,\"completion_contract\":\"native_dispatch_and_matching_preset\",\"active_weapon_verified\":false}\n",
+                    activation_ready?"true":"false",activation_armed?"true":"false"));
                 camera_lock_log::set_hooked(hook_status==MH_OK && camera_probe && camera_original);
-                fprintf(log,"{\"event\":\"camera_lock_logging\",\"pin_verified\":%s,\"hooked\":%s,\"reason\":\"%s\",\"record_limit\":%u,\"player_ownership_verified\":false}\n",
+                CRMOD_DIAGNOSTIC(fprintf(log,"{\"event\":\"camera_lock_logging\",\"pin_verified\":%s,\"hooked\":%s,\"reason\":\"%s\",\"record_limit\":%u,\"player_ownership_verified\":false}\n",
                     camera_probe?"true":"false",camera_lock_log::st().hooked?"true":"false",
-                    camera_lock_log::missing(),camera_lock_log::kBudget);
-                if (hook_status==MH_OK && gameplay_runtime::collision_ready)
+                    camera_lock_log::missing(),camera_lock_log::kBudget));
+                if (diagnostics::enabled && hook_status==MH_OK && gameplay_runtime::collision_ready)
                     gameplay_runtime::collision.enable(true);
                 if (hook_status==MH_OK && step_observers_ready) {
                     step_binding::set_hooked(true,true);
@@ -585,17 +595,19 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     AcquireSRWLockExclusive(&queue_lock);
                     recording.store(!stopping.load());
                     ReleaseSRWLockExclusive(&queue_lock);
-                    loadout_mod::start(stopping, true);
-                    if (observe_ui) native_ui_probe::start(stopping, true);
+                    if constexpr(diagnostics::enabled) {
+                        loadout_mod::start(stopping,true);
+                        if(observe_ui)native_ui_probe::start(stopping,true);
+                    }
                     status = "installed";
                 }
             }
         }
     }
-    LARGE_INTEGER frequency{};
-    QueryPerformanceFrequency(&frequency);
-    fprintf(log, "{\"event\":\"selection_observer\",\"status\":\"%s\",\"minhook_status\":%d,\"recording\":%s,\"qpc_frequency\":%lld,\"kinds\":\"0=commit_entry,1=commit_exit,2=setter_entry,3=setter_exit\"}\n",
-            status, static_cast<int>(hook_status), recording.load() ? "true" : "false", frequency.QuadPart);
-    fflush(log);
+    [[maybe_unused]] LARGE_INTEGER frequency{};
+    CRMOD_DIAGNOSTIC(QueryPerformanceFrequency(&frequency));
+    CRMOD_DIAGNOSTIC(fprintf(log, "{\"event\":\"selection_observer\",\"status\":\"%s\",\"minhook_status\":%d,\"recording\":%s,\"qpc_frequency\":%lld,\"kinds\":\"0=commit_entry,1=commit_exit,2=setter_entry,3=setter_exit\"}\n",
+            status, static_cast<int>(hook_status), recording.load() ? "true" : "false", frequency.QuadPart));
+    CRMOD_DIAGNOSTIC(fflush(log));
 }
 } // namespace selection_observer

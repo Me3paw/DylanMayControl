@@ -1,6 +1,1 @@
 .work/
-.build/
-build/
-*.dll
-*.exe
-*.o

@@ -6,6 +6,7 @@
 // Threading: callbacks may run on any engine thread (thread identity unproven); state is guarded by a
 // tiny spin lock and gates are atomics. Snapshots/pointers never escape the callback.
 #pragma once
+#include "diagnostics.h"
 #include <atomic>
 #include <cmath>
 #include <cstddef>
@@ -340,7 +341,8 @@ public:
         return {StepAction::Step, failed, mutated, d.actor};
     }
     // Plain-data records only; call from the proxy flush path. Returns rows written.
-    unsigned flush(FILE* log) {
+    unsigned flush([[maybe_unused]] FILE* log) {
+#if CRMOD_DIAGNOSTICS
         Record rows[64];
         lock();
         unsigned n = count_;
@@ -356,18 +358,23 @@ public:
         if (dropped) std::fprintf(log, "{\"event\":\"combat_mod_dropped\",\"count\":%u}\n", dropped);
         if (n || dropped) std::fflush(log);
         return n;
+#else
+        return 0;
+#endif
     }
 private:
     void lock() { while (spin_.test_and_set(std::memory_order_acquire)) {} }
     void unlock() { spin_.clear(std::memory_order_release); }
-    void push(const Record& r) { if (count_ == 64) ++dropped_; else ring_[count_++] = r; }
+    void push([[maybe_unused]] const Record& r) { CRMOD_DIAGNOSTIC(if (count_ == 64) ++dropped_; else ring_[count_++] = r); }
     std::atomic_flag spin_ = ATOMIC_FLAG_INIT;
     std::atomic<bool> finishers_{false}, step_{false};   // default OFF
     Readers readers_{};
     StepActuators actuators_{};
     DirectionTracker tracker_{};
     StepTracker step_tracker_{};
+#if CRMOD_DIAGNOSTICS
     Record ring_[64]{};
     unsigned count_ = 0, dropped_ = 0;
+#endif
 };
 } // namespace combat_mod

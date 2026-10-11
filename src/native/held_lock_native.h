@@ -135,7 +135,7 @@ inline void producer_hook(void* columns,void* time,void* native_input) {
         proof_valid.store(active()&&loan.serial==producer_serial.load());
         ReleaseSRWLockExclusive(&proof_lock);
     }
-    if (loan.camera_seen&&!loan.supported) ++unsupported_mappings;
+    CRMOD_DIAGNOSTIC(if(loan.camera_seen&&!loan.supported)++unsupported_mappings);
     SetLastError(outgoing);
 }
 inline uint64_t mapped_hook(void* bank,uint16_t key) {
@@ -151,7 +151,7 @@ inline uint64_t mapped_hook(void* bank,uint16_t key) {
     const uint64_t result=reinterpret_cast<MappedFn>(originals[4])(bank,key);
     const DWORD outgoing=GetLastError();
     if (ours&&qualify_producer(*s)) {
-        s->camera_seen=true; ++mapped_evaluations;
+        s->camera_seen=true; CRMOD_DIAGNOSTIC(++mapped_evaluations);
         camera_mapping=s;
         SetLastError(incoming);
         const uint64_t level=reinterpret_cast<MappedFn>(originals[4])(bank,key);
@@ -178,20 +178,20 @@ inline uint8_t predicate_hook(void* descriptor,uint16_t key,void* args) {
                 const uint8_t mode=local[0x54];
                 if (mode>4) {
                     s->supported=false;
-                    unsupported_modes.fetch_or(uint32_t{1}<<(mode<31?mode:31));
+                    CRMOD_DIAGNOSTIC(unsupported_modes.fetch_or(uint32_t{1}<<(mode<31?mode:31)));
                 }
                 else if (mode>=2) {
                     // Native90: 0=current, 2=pressed, 3=released, 4=repeat.
                     // Native91 refresh mutates only cache48 and binding50/52.
                     // This plain descriptor copy retains native gate38 and IDs;
                     // the original case5 does not retain the descriptor address.
-                    local[0x54]=0; evaluated=local; ++edge_overrides;
+                    local[0x54]=0; evaluated=local; CRMOD_DIAGNOSTIC(++edge_overrides);
                 }
             } else if (kind!=1&&kind!=2&&kind!=3&&kind!=4&&kind!=10) {
                 // Preserve logical composition; do not reinterpret unknown
                 // stateful gestures or device-specific predicate tables.
                 s->supported=false;
-                unsupported_kinds.fetch_or(uint32_t{1}<<(kind<31?kind:31));
+                CRMOD_DIAGNOSTIC(unsupported_kinds.fetch_or(uint32_t{1}<<(kind<31?kind:31)));
             }
         }
     }
@@ -247,7 +247,7 @@ inline uint64_t flag_hook(void* input,uint16_t key) {
         uint8_t locked=0;
         if (combat_native::copy_checked(step_binding::env().copy,&locked,s->status,1)) {
             const uint8_t request=static_cast<uint8_t>(s->down!=(locked!=0));
-            if (static_cast<uint8_t>(result)!=request) ++transitions;
+            CRMOD_DIAGNOSTIC(if(static_cast<uint8_t>(result)!=request)++transitions);
             result=(result&~uint64_t{0xff})|request;
         }
     }
@@ -256,7 +256,7 @@ inline uint64_t flag_hook(void* input,uint16_t key) {
 inline void clear_hook(void* logic,uint64_t mask,uint8_t retain) {
     const DWORD incoming=GetLastError(); auto* s=current;
     if (s&&s->active_state&&mask==kMask&&reinterpret_cast<uintptr_t>(logic)==s->logic&&
-        !s->down&&retain&&qualify(*s)) { retain=0; ++release_cleanups; }
+        !s->down&&retain&&qualify(*s)) { retain=0; CRMOD_DIAGNOSTIC(++release_cleanups); }
     SetLastError(incoming);
     reinterpret_cast<ClearFn>(originals[2])(logic,mask,retain);
     const DWORD outgoing=GetLastError(); SetLastError(outgoing);
@@ -285,6 +285,7 @@ inline bool arm(uint64_t base,bool loaded_contracts_and_module_pin_verified,cons
 }
 inline void stop() { stopped.store(true); enabled.store(false); proof_valid.store(false); }
 inline void flush(FILE* file) {
+    if constexpr(!diagnostics::enabled)return;
     if (!file) return;
     const auto a=transitions.exchange(0),b=release_cleanups.exchange(0);
     if (a||b) std::fprintf(file,"{\"event\":\"held_lock_native\",\"action\":%u,\"transitions\":%llu,\"release_cleanups\":%llu,\"native_target_selection\":true,\"direct_locked_byte_writes\":false}\n",static_cast<unsigned>(action.load()),static_cast<unsigned long long>(a),static_cast<unsigned long long>(b));

@@ -204,7 +204,7 @@ inline bool same_source(const Catalogue& a,const Catalogue& b) {
 }
 inline void configure_current(Catalogue& source) {
     if (!active() || !source.valid) return;
-    if (!TryAcquireSRWLockExclusive(&state_lock)) { ++dropped; return; }
+    if (!TryAcquireSRWLockExclusive(&state_lock)) { CRMOD_DIAGNOSTIC(++dropped); return; }
     struct Unlock { ~Unlock() { ReleaseSRWLockExclusive(&state_lock); } } unlock;
     if (!active()) return;
     if(!slots_restored){if(!control.restore_assignments(mod_bindings::snapshot().loadout))return;slots_restored=true;}
@@ -272,12 +272,12 @@ inline void body(void* columns,void* state,void* stacks,void* facts,void* graph,
                 reinterpret_cast<std::uintptr_t>(graph),source)) {
             source.ui_stacks_key=reinterpret_cast<std::uintptr_t>(stacks);
             if (!source.ui_stacks_key) {
-                ++invalid; invalidate_published();
+                CRMOD_DIAGNOSTIC(++invalid); invalidate_published();
                 SetLastError(forwarded); return;
             }
             observed_player_actor.store(source.actor);
-            ++captured; configure_current(source);
-        } else { ++invalid; invalidate_published(); }
+            CRMOD_DIAGNOSTIC(++captured); configure_current(source);
+        } else { CRMOD_DIAGNOSTIC(++invalid); invalidate_published(); }
     }
     SetLastError(forwarded);
 }

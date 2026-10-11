@@ -38,9 +38,13 @@ inline uint64_t next_ticket=0;
 inline std::atomic<uint64_t> queued{0},applied{0},rejected{0};
 inline unsigned diagnostic_total=0;
 inline bool current_graph(const Request& request) {
-    loadout_player_catalogue::Published published{};
-    return loadout_player_catalogue::copy_published(native_ui::sdk::generation.load(),published) &&
+    namespace catalogue=loadout_player_catalogue;
+    const auto generation=native_ui::sdk::generation.load();
+    if(!catalogue::active() || !generation || !TryAcquireSRWLockShared(&catalogue::state_lock))return false;
+    const auto& published=catalogue::published;
+    const bool accepted=catalogue::active() && published.view_generation==generation && published.catalogue.valid &&
         published.catalogue.world==request.world && published.catalogue.actor==request.actor && published.catalogue.graph_key==request.graph;
+    ReleaseSRWLockShared(&catalogue::state_lock);return accepted;
 }
 inline bool active() { return enabled.load() && stopping && !stopping->load(); }
 inline bool uppercut(const combat_mod::ChooserArgs& args,uint32_t chosen) {
@@ -74,7 +78,7 @@ inline void accepted(const combat_mod::ChooserArgs& args,uint32_t chosen,const c
                     reinterpret_cast<uintptr_t>(args.graph),snapshot.target,++next_ticket,
                     chosen,reversed,true,static_cast<uint32_t>(GetTickCount64())};
                 request.lifetime.sustained=uppercut(args,chosen);
-                ++queued;
+                CRMOD_DIAGNOSTIC(++queued);
             }
             ReleaseSRWLockExclusive(&lock);
         }
@@ -91,16 +95,32 @@ inline void* original_update=nullptr;
 struct DirectionProbe {uint32_t ms=0,node=0;uint64_t ticket=0;float raw[4]{},command[4]{},output[4]{};bool output_read=false;uint8_t melee=0,flags=0;};
 inline std::array<DirectionProbe,64> direction_probes{};
 inline unsigned direction_count=0;
+#ifdef CRMOD_API_SELF_CHECK
+inline void (*flush_test_barrier)()=nullptr;
+inline ULONGLONG (*update_clock_test)()=nullptr;
+#endif
 inline void update_hook(void* columns,void* targets,void* cfg,void* buffered,void* extra) {
     const DWORD incoming=GetLastError();
     Request pending{};
     if(active() && TryAcquireSRWLockShared(&lock)) {pending=request;ReleaseSRWLockShared(&lock);}
+    if(!pending.pending) {
+        SetLastError(incoming);
+        reinterpret_cast<UpdateFn>(original_update)(columns,targets,cfg,buffered,extra);
+        return;
+    }
     uint64_t q[12]{},targeting=0;uint32_t node=UINT32_MAX;uint8_t melee=0;
     facing_lock_native::Snapshot s{};loadout_actor_resolver::Rows rows{};
     alignas(16) unsigned char movement[0x80]{};
-    void* forwarded=columns;DirectionProbe probe{};bool changed=false,validated=false;
-    const auto age=static_cast<uint32_t>(GetTickCount64())-pending.started_ms;
-    uint32_t guard=1;
+    void* forwarded=columns;bool changed=false,validated=false;
+#if CRMOD_DIAGNOSTICS
+    DirectionProbe probe{};
+#endif
+    const auto age=static_cast<uint32_t>(
+#ifdef CRMOD_API_SELF_CHECK
+        update_clock_test?update_clock_test():
+#endif
+        GetTickCount64())-pending.started_ms;
+    [[maybe_unused]] uint32_t guard=1;
     const bool owner_current=pending.pending && loadout_actor_resolver::resolve(pending.world,pending.actor,rows);
     const bool player_call=owner_current &&
         combat_native::copy_checked(step_binding::env().copy,q,reinterpret_cast<uintptr_t>(columns),sizeof q) &&
@@ -120,37 +140,37 @@ inline void update_hook(void* columns,void* targets,void* cfg,void* buffered,voi
         auto direction_vector=pending.reversed;
         const bool direction_valid=!pending.lifetime.sustained || facing_movement::plane_local(s.basis.forward,s.plane_value,direction_vector);
         const bool eligible=pending.lifetime.observe(age,direction_valid,native_attack);
-        guard=9;probe.melee=melee;probe.flags=attack_flags;
+        guard=9;CRMOD_DIAGNOSTIC(probe.melee=melee;probe.flags=attack_flags);
         float direction[4]{direction_vector.x,direction_vector.y,direction_vector.z,s.raw[3]};
         std::memcpy(movement,direction,sizeof direction);
         if(pending.lifetime.sustained){const float magnitude=1;std::memcpy(movement+0x24,&magnitude,sizeof magnitude);}
         const auto address=reinterpret_cast<uintptr_t>(movement),offset=q[11]*0x80;
         if(eligible && address>offset && address-offset>=0x10000) {
             q[2]=address-offset;forwarded=q;changed=true;guard=0;
-            probe.ms=static_cast<uint32_t>(GetTickCount64());probe.node=node;probe.ticket=pending.ticket;
-            std::memcpy(probe.raw,s.raw,16);std::memcpy(probe.command,direction,16);
+            CRMOD_DIAGNOSTIC(probe.ms=static_cast<uint32_t>(GetTickCount64());probe.node=node;probe.ticket=pending.ticket;
+                std::memcpy(probe.raw,s.raw,16);std::memcpy(probe.command,direction,16));
         }
     }
     if(pending.pending && (!owner_current || (player_call && !validated)))pending.lifetime.observe(age,false,false);
     if(player_call && TryAcquireSRWLockExclusive(&lock)) {
-        if(request.ticket==pending.ticket) {request.last_guard=guard;request.observed_node=node;request.observed_melee=probe.melee;request.observed_flags=probe.flags;request.lifetime=pending.lifetime;}
+        if(request.ticket==pending.ticket) {CRMOD_DIAGNOSTIC(request.last_guard=guard;request.observed_node=node;request.observed_melee=probe.melee;request.observed_flags=probe.flags);request.lifetime=pending.lifetime;}
         ReleaseSRWLockExclusive(&lock);
     }
     SetLastError(incoming);
     reinterpret_cast<UpdateFn>(original_update)(forwarded,targets,cfg,buffered,extra);
     const DWORD outgoing=GetLastError();
     if(changed) {
-        probe.output_read=loadout_actor_resolver::current(rows) &&
-            combat_native::copy_checked(step_binding::env().copy,probe.output,targeting+0x90,16);
+        CRMOD_DIAGNOSTIC(probe.output_read=loadout_actor_resolver::current(rows) &&
+            combat_native::copy_checked(step_binding::env().copy,probe.output,targeting+0x90,16));
         if(TryAcquireSRWLockExclusive(&lock)) {
-            if(diagnostic_total<4096 && direction_count<direction_probes.size()) {direction_probes[direction_count++]=probe;++diagnostic_total;}
+            CRMOD_DIAGNOSTIC(if(diagnostic_total<4096 && direction_count<direction_probes.size()) {direction_probes[direction_count++]=probe;++diagnostic_total;});
             if(request.ticket==pending.ticket){request.lifetime.applied();request.pending=!request.lifetime.finished;}
             ReleaseSRWLockExclusive(&lock);
         }
-        ++applied;
+        CRMOD_DIAGNOSTIC(++applied);
     } else if(pending.pending && (pending.lifetime.finished || (!pending.lifetime.started && age>250)) && TryAcquireSRWLockExclusive(&lock)) {
         if(request.ticket==pending.ticket) request.pending=false;
-        ReleaseSRWLockExclusive(&lock);++rejected;
+        ReleaseSRWLockExclusive(&lock);CRMOD_DIAGNOSTIC(++rejected);
     }
     SetLastError(outgoing);
 }
@@ -160,14 +180,22 @@ inline bool arm(uint64_t base,bool verified,const std::atomic<bool>& stop) {
 }
 inline void stop() { enabled.store(false);AcquireSRWLockExclusive(&lock);request.pending=false;ReleaseSRWLockExclusive(&lock); }
 inline void flush(FILE* file) {
+    if constexpr(!diagnostics::enabled)return;
     if(!file) return;
+    std::array<DirectionProbe,64> rows{};unsigned size=0;
     if(TryAcquireSRWLockExclusive(&lock)) {
-        for(unsigned i=0;i<direction_count;++i) {
-            const auto& p=direction_probes[i];
+        size=direction_count;
+        std::memcpy(rows.data(),direction_probes.data(),size*sizeof(DirectionProbe));
+        direction_count=0;ReleaseSRWLockExclusive(&lock);
+    }
+    // Slow output must never own the gameplay request lock.
+    for(unsigned i=0;i<size;++i) {
+            const auto& p=rows[i];
+#ifdef CRMOD_API_SELF_CHECK
+            if(flush_test_barrier)flush_test_barrier();
+#endif
             std::fprintf(file,"{\"event\":\"back_attack_direction\",\"ms\":%u,\"node\":%u,\"ticket\":%llu,\"raw\":[%.6g,%.6g,%.6g],\"command\":[%.6g,%.6g,%.6g],\"targeting_direction\":[%.6g,%.6g,%.6g],\"output_read\":%s,\"melee_slot\":%u,\"attack_flags\":%u,\"movement_writes\":false}\n",
                 p.ms,p.node,static_cast<unsigned long long>(p.ticket),p.raw[0],p.raw[1],p.raw[2],p.command[0],p.command[1],p.command[2],p.output[0],p.output[1],p.output[2],p.output_read?"true":"false",p.melee,p.flags);
-        }
-        direction_count=0;ReleaseSRWLockExclusive(&lock);
     }
     Request last{};
     if(TryAcquireSRWLockShared(&lock)) {last=request;ReleaseSRWLockShared(&lock);}
