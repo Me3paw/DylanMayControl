@@ -2,14 +2,14 @@
 
 DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant.
 
-Current route: **native Original DLL (recommended Main download)**. Both variants use identical shared native/UI source. Choose one route; never load both copies of this mod.
+Current route: **f2g plugin (recommended Main download)**. Both variants use identical shared native/UI source. Choose one route; never load both copies of this mod.
 
 ## Compatibility and installation
 
 Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.0.3 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
 
-- Native Original DLL: extract `DylanMayControl-1.0.3-OriginalDLL.zip` beside CONTROLResonant.exe; it installs root xinput1_4.dll. No f2g requirement. On Proton use `xinput1_4=n,b` in your game's DLL overrides.
-- f2g: extract `DylanMayControl-1.0.3.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
+- Optional native Original DLL: extract `DylanMayControl-1.0.3-OriginalDLL.zip` beside CONTROLResonant.exe; it installs root xinput1_4.dll. No f2g requirement. On Proton use `xinput1_4=n,b` in your game's DLL overrides.
+- Main/default f2g: extract `DylanMayControl-1.0.3.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
 
 Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, saves and unrelated mods. When switching routes, back up/remove only the other DylanMayControl DLL; f2g may remain for unrelated plugins. Merge overrides with existing launcher settings. Follow INSTALLATION.txt and USER_GUIDE.txt in the release archive.
 
@@ -27,7 +27,7 @@ Production diagnostic logging is compiled out in both routes. The functionality/
 - [f2g v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.0.3)
 - [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181)
 
-DLL SHA256: `2c7ac6c9adf0d983bef3fe42d8f0311768e503b9869f3a46aa70537ec026063f`. The source in each archive is flat under SOURCE/, with SOURCE-SHA256SUMS.txt. Older tags and Nexus files retain prior-build releases.
+DLL SHA256: `4e60eeb7a59182850e0cec52b59a0ec593e6340bed781f69f4788a0a232d1b90`. The source in each archive is flat under SOURCE/, with SOURCE-SHA256SUMS.txt. Older tags and Nexus files retain prior-build releases.
 
 ## License and credits
 
