@@ -145,18 +145,36 @@ inline void start() {
     if (valid(s)) { AcquireSRWLockExclusive(&lock); settings=s; ReleaseSRWLockExclusive(&lock); }
     saved_revision.store(1);
 }
+#ifdef CRMOD_API_SELF_CHECK
+inline ULONGLONG (WINAPI* persist_clock_test)()=nullptr;
+inline decltype(&WritePrivateProfileStringW) persist_write_test=nullptr;
+#endif
+inline BOOL write_setting(const wchar_t* section,const wchar_t* name,const wchar_t* value) {
+#ifdef CRMOD_API_SELF_CHECK
+    if(persist_write_test)return persist_write_test(section,name,value,path);
+#endif
+    return WritePrivateProfileStringW(section,name,value,path);
+}
 inline void persist(bool force=false) {
     if (!path[0]) return;
     const auto s=snapshot(); if (saved_revision.load()==s.revision) return;
-    static ULONGLONG next=0; const auto now=GetTickCount64();const auto urgent=urgent_revision.load();
+    static ULONGLONG next=0;
+#ifdef CRMOD_API_SELF_CHECK
+    const auto now=persist_clock_test?persist_clock_test():GetTickCount64();
+#else
+    const auto now=GetTickCount64();
+#endif
+    auto urgent=urgent_revision.load();
     if (now<next && !force && !(urgent && urgent<=s.revision)) return; next=now+1000;
+    // Urgency requests one immediate attempt; failed revisions remain pending at the normal retry rate.
+    if(urgent && urgent<=s.revision)urgent_revision.compare_exchange_strong(urgent,0);
     const wchar_t* names[]={L"PrimaryKey",L"SecondaryKey",L"PrimaryPad",L"SecondaryPad",L"PrimaryAltKey",L"SecondaryAltKey",L"ContactMarginMm",L"BackPauseMs"};
     const unsigned values[]={s.key[0],s.key[1],s.pad[0],s.pad[1],s.key_alt[0],s.key_alt[1],s.contact_margin_mm,s.back_pause_ms};
     bool ok=true; wchar_t number[24]{};
-    for (unsigned i=0;i<8;++i) { swprintf(number,24,L"%u",values[i]); ok=WritePrivateProfileStringW(i>=6?L"Gameplay":L"Controls",names[i],number,path)!=0 && ok; }
-    swprintf(number,24,L"%u",s.loot_multiplier);ok=WritePrivateProfileStringW(L"Gameplay",L"LootMultiplier",number,path)!=0 && ok;
-    ok=WritePrivateProfileStringW(L"Controls",L"PadDefaultsVersion",L"1",path)!=0 && ok;
-    for(unsigned c=0;c<2;++c)for(unsigned i=0;i<3;++i){swprintf(number,24,L"%u",s.loadout[c][i]);ok=WritePrivateProfileStringW(L"Loadout",slot_names[c][i],number,path)!=0 && ok;}
+    for (unsigned i=0;i<8;++i) { swprintf(number,24,L"%u",values[i]); ok=write_setting(i>=6?L"Gameplay":L"Controls",names[i],number)!=0 && ok; }
+    swprintf(number,24,L"%u",s.loot_multiplier);ok=write_setting(L"Gameplay",L"LootMultiplier",number)!=0 && ok;
+    ok=write_setting(L"Controls",L"PadDefaultsVersion",L"1")!=0 && ok;
+    for(unsigned c=0;c<2;++c)for(unsigned i=0;i<3;++i){swprintf(number,24,L"%u",s.loadout[c][i]);ok=write_setting(L"Loadout",slot_names[c][i],number)!=0 && ok;}
     save_error.store(!ok); if (ok){saved_revision.store(s.revision);auto pending=urgent_revision.load();if(pending && pending<=s.revision)urgent_revision.compare_exchange_strong(pending,0);}
 }
 inline unsigned pad_buttons(const XINPUT_GAMEPAD& p) {

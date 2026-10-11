@@ -1,23 +1,34 @@
-# DylanMayControl
+# DylanMayControl v1.0.3
 
-DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant. The name is a play on Devil May Cry.
+DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant.
 
-This repository contains source for two separately distributed routes. The exact build102 f2g source snapshot is preserved at tag `f2g-v1.0.0-build102`; `main` contains the original-DLL proxy source for the optional xinput1_4.dll alternative. The Nexus page has both release files: [DylanMayControl on Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181).
+Current route: **native Original DLL (recommended Main download)**. Both variants use identical shared native/UI source. Choose one route; never load both copies of this mod.
 
-## Source and license
+## Compatibility and installation
 
-The author's original code and documentation are MIT licensed. You may reuse, modify, redistribute, and use that covered material commercially with attribution; keep the copyright and license notice. See LICENSE.
+Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.0.3 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
 
-**The MIT grant does not cover src/ui/weapon_icons.js or its embedded six CONTROL Resonant weapon icons.** Those images are Remedy Entertainment/game assets and remain subject to their rights and fan-content rules. Do not extract, reuse, or redistribute them separately under this repository's MIT grant. This file is retained only as part of this free, unofficial fan-work source. This is not approved or endorsed by Remedy Entertainment Plc or its affiliates.
+- Native Original DLL: extract `DylanMayControl-1.0.3-OriginalDLL.zip` beside CONTROLResonant.exe; it installs root xinput1_4.dll. No f2g requirement. On Proton use `xinput1_4=n,b` in your game's DLL overrides.
+- f2g: extract `DylanMayControl-1.0.3.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
 
-MinHook is a third-party dependency under its own BSD license; see third_party/minhook/LICENSE.txt. Its terms remain in force. No game binaries, compiler binaries, screenshots, saves, logs, private comparison experiments, or downloaded UI bundles are included.
+Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, saves and unrelated mods. When switching routes, back up/remove only the other DylanMayControl DLL; f2g may remain for unrelated plugins. Merge overrides with existing launcher settings. Follow INSTALLATION.txt and USER_GUIDE.txt in the release archive.
 
-## Build
+## Features and verification
 
-See BUILDING.md for requirements and commands. The default command builds the root `xinput1_4.dll` proxy alternative. Pass `--plugin` to build the f2g plugin instead. Build outputs stay under ignored `.work/`; the script does not install or modify the game.
+Three primary/secondary slots, custom cycle bindings, queued native weapon handoffs, held lock and target-relative finisher commands, sustained charged Uppercut targeting, one owned Split Pivot/Orbit each, and adjustable resource loot. Native movement, attack pace, cancels, acquisition and per-weapon upgrades remain enforced. See CHANGELOG.md and BUILDING.md.
 
-## Release provenance
+Both routes passed build/export and isolated 15-second Linux/Proton startup checks. The author tested the native Original DLL route on the updated game and reported no obvious regression. The f2g route uses the same shared source and passed startup checks; separate f2g gameplay and native Windows gameplay have not been independently tested.
 
-The original f2g v1.0.0 build102 `combatloadout.dll` SHA256 is `3f703860d3f86f751cfd9c7357a0011b46f16d8550d1ae6fd6a4343df7f6f773`; its source snapshot and all 63 expected file hashes are preserved by tag `f2g-v1.0.0-build102`. The optional original-DLL proxy route is separately tagged `original-dll-v1.0.0-build103`; its `xinput1_4.dll` SHA256 is `7c673c80a864ffbc7baca511892d0edc5bec5cf9c9078f915a5760d8c65840ff`. See that Nexus optional file for install details.
+Production diagnostic logging is compiled out in both routes. The functionality/performance source and binary audit found no blocking issue or new steady-state regression in reviewed paths. This is not a controlled current-build FPS or 1% low measurement.
 
-The optional proxy passed startup/helper checks and displayed the Remedy logo during a short boot check. Controller/combat play and performance comparison are still pending; no stutter improvement has been established. The original f2g release was tested on Linux with Proton and keyboard/controller input; native Windows gameplay has not been independently tested.
+## Source and release
+
+- [Native Original DLL v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/original-dll-v1.0.3)
+- [f2g v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.0.3)
+- [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181)
+
+DLL SHA256: `2c7ac6c9adf0d983bef3fe42d8f0311768e503b9869f3a46aa70537ec026063f`. The source in each archive is flat under SOURCE/, with SOURCE-SHA256SUMS.txt. Older tags and Nexus files retain prior-build releases.
+
+## License and credits
+
+Original code/docs are MIT licensed, including commercial reuse with attribution and retained notices; see LICENSE and CREDITS.md. **src/ui/weapon_icons.js, embedded Remedy icons, other game imagery and gameplay screenshots are excluded from the MIT grant.** MinHook/HDE retain the BSD notice in third_party/minhook/LICENSE.txt. No game binaries, saves, logs, personal settings, fetched tools or compilers are included. This is unofficial fan work, not approved or endorsed by Remedy Entertainment Plc or its affiliates.

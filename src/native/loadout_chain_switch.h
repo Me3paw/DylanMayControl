@@ -28,7 +28,7 @@ inline bool copy_ticket(Ticket& out) {
 inline void clear(const Ticket& old) {
     if (!TryAcquireSRWLockExclusive(&ticket_lock)) return;
     if (ticket.valid && ticket.actor==old.actor && ticket.id==old.id && ticket.sequence==old.sequence) {
-        ticket.valid=false; ++cancelled;
+        ticket.valid=false; CRMOD_DIAGNOSTIC(++cancelled);
     }
     ReleaseSRWLockExclusive(&ticket_lock);
 }
@@ -168,7 +168,7 @@ inline bool intercept(const combat_mod::ChooserArgs& a,std::uint32_t native_resu
         if (equipped==t.id) {
             std::uint32_t first=UINT32_MAX;
             if (first_entry(a,t,first) && finisher_chooser_scope::live(a)) {
-                result=first; clear(t); last_id.store(t.id); last_entry.store(first); ++selected; return true;
+                result=first; clear(t); CRMOD_DIAGNOSTIC(last_id.store(t.id)); CRMOD_DIAGNOSTIC(last_entry.store(first)); CRMOD_DIAGNOSTIC(++selected); return true;
             }
         }
         // Keep native cancels/non-attack choices. Do not consume the old
@@ -178,7 +178,7 @@ inline bool intercept(const combat_mod::ChooserArgs& a,std::uint32_t native_resu
             if (!loadout_actor_resolver::field(reinterpret_cast<std::uintptr_t>(a.combo_data),0,nodes)) return false;
             const auto packed=input(reinterpret_cast<void*>(static_cast<std::uintptr_t>(combat_native::at(nodes,native_result,combat_native::graph::kNode))),a.combo_data,a.combo_cfg);
             if ((packed&0x100) && (packed&0xff)<=3 && ((packed&0xff)>>1)==t.channel) {
-                result=UINT32_MAX; ++held; return true;
+                result=UINT32_MAX; CRMOD_DIAGNOSTIC(++held); return true;
             }
         }
         return false;
@@ -215,9 +215,10 @@ inline bool intercept(const combat_mod::ChooserArgs& a,std::uint32_t native_resu
         !key_for(loan.rows,reinterpret_cast<std::uintptr_t>(a.anim_out),0x48,t.animation_hash) || !finisher_chooser_scope::live(a)) return false;
     if (!TryAcquireSRWLockExclusive(&ticket_lock)) return false;
     ticket=t; ReleaseSRWLockExclusive(&ticket_lock);
-    result=UINT32_MAX; ++held; return true;
+    result=UINT32_MAX; CRMOD_DIAGNOSTIC(++held); return true;
 }
 inline void flush(FILE* log) {
+    if constexpr(!diagnostics::enabled)return;
     if (!log) return;
     static ULONGLONG next=0; static unsigned budget=512;
     const auto now=GetTickCount64();

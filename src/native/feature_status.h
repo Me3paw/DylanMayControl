@@ -5,6 +5,7 @@
 //                                     id=0x.. rva=0x.. state=<unbound|bound|disabled|active> detail=<text>
 // Event lines are rate limited per (feature, event): the first 16, then every 256th, with a `suppressed=N` counter.
 #pragma once
+#include "diagnostics.h"
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -27,11 +28,12 @@ inline const char* state_name(State s) {
 
 class Registry {
 public:
-    void set_sink(LogFn fn) { sink_.store(fn, std::memory_order_release); }
+    void set_sink(LogFn fn) { if constexpr(diagnostics::enabled)sink_.store(fn,std::memory_order_release); }
     // `missing` is a short comma-separated list of what is absent (empty when Active).
     void set_state(Feature f, State s, const char* missing) {
         const size_t i = static_cast<size_t>(f);
         state_[i].store(static_cast<uint8_t>(s), std::memory_order_release);
+        if constexpr(!diagnostics::enabled)return;
         std::snprintf(missing_[i], sizeof missing_[i], "%.255s", missing ? missing : "");
         emit(f, Event::Status, 0, 0, 0, 0, s, missing ? missing : "");
     }
@@ -41,6 +43,7 @@ public:
     void emit_status(Feature f) { emit(f, Event::Status, 0, 0, 0, 0, state(f), missing_[static_cast<size_t>(f)]); }
     // Rate-limited event line. Never blocks; drops when the sink is absent.
     void event(Feature f, Event e, uint64_t world, uint64_t actor, uint64_t id, uint32_t hook_rva, const char* detail) {
+        if constexpr(!diagnostics::enabled)return;
         std::atomic<uint64_t>& c = count_[static_cast<size_t>(f)][static_cast<size_t>(e)];
         const uint64_t n = c.fetch_add(1, std::memory_order_relaxed);
         if (n >= 16 && (n & 255) != 0) return;                          // suppressed (the counter still counts)
@@ -50,6 +53,7 @@ public:
 
 private:
     void emit(Feature f, Event e, uint64_t world, uint64_t actor, uint64_t id, uint32_t rva, State s, const char* detail, uint64_t suppressed = 0) {
+        if constexpr(!diagnostics::enabled)return;
         const LogFn fn = sink_.load(std::memory_order_acquire);
         if (!fn) return;
         char line[320];

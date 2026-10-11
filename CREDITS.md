@@ -1,10 +1,21 @@
-# Credits and asset boundaries
+DylanMayControl v1.0.2
+Author / release account: myqueenformdeath
 
-- DylanMayControl is an unofficial fan work inspired by Devil May Cry's directional combat and weapon swapping. No Devil May Cry assets are included.
-- CONTROL Resonant and its weapon icons/game imagery belong to Remedy Entertainment and their respective rights holders. src/ui/weapon_icons.js contains six original game icons as embedded data. They are present only for this free fan-work snapshot and excluded from the repository's MIT license. No separate reuse or extraction permission is granted. Follow Remedy's fan-content rules: https://community.remedygames.com/rules-for-fan-content/
-- MinHook by Tsuda Kageyu, with HDE credits to Vyacheslav Patkov. The dependency remains under its BSD license; see third_party/minhook/LICENSE.txt.
-- The f2g DLL Mod Loader (crloader) by fame2gin is a separate required download and is not included.
-- Research/tool references: Mod Settings Menu by kkyleeb21; SonOfSaris/GravityControl; GrzybDev/NorthlightTools; Resonant Mod Tool; CRLooseFiles by Jaumns. Their first-party implementations and binaries are not redistributed here.
-- Development was assisted by OpenAI Codex and Anthropic Claude under the author's direction and gameplay testing.
+Inspired by Devil May Cry's directional-input combat and weapon swapping. No Devil May Cry assets are included.
+
+CONTROL Resonant, its weapon icons and gameplay imagery belong to Remedy Entertainment and the respective rights holders. The original game icons are used in this free mod's in-game HUD/Loadout, with credit and the unofficial notice below. This does not grant permission to extract or reuse Remedy's assets separately. Fan-content rules: https://community.remedygames.com/rules-for-fan-content/
 
 This is unofficial fan work not approved or endorsed by Remedy Entertainment Plc or its affiliates.
+
+MinHook: Tsuda Kageyu, with HDE credits to Vyacheslav Patkov. BSD notices are included in MINHOOK-LICENSE.txt and continue to apply.
+
+Research/tool references: f2g loader by fame2gin; Mod Settings Menu by kkyleeb21; SonOfSaris/GravityControl; GrzybDev/NorthlightTools; Resonant Mod Tool; CRLooseFiles by Jaumns. These references were used for investigation. Their first-party implementations and downloaded binaries are not redistributed in this package. The f2g loader is required only by the separate Main/f2g route; this Original DLL archive does not require it.
+
+Development was assisted by OpenAI Codex and Anthropic Claude, under the author's direction and gameplay testing. The mod contains AI-generated code; the accompanying page text was prepared with AI assistance. The screenshot is an unchanged author-provided gameplay capture.
+
+Permissions: original author code and documentation are MIT-licensed. You may use, copy, modify, distribute and sell covered code while retaining the MIT notice; see LICENSE. This permission excludes Remedy's game icons and gameplay imagery, including src/ui/weapon_icons.js; their rights remain with Remedy and the applicable fan-content rules. MinHook and HDE retain their included BSD notices. The compiled mod includes game icons, so the original-code license is not a grant to sell or separately reuse those assets.
+
+Source: https://github.com/Me3paw/DylanMayControl
+Exact v1.0.2 Original DLL source: included SOURCE/
+
+The GitHub repository contains earlier release history; the included source snapshot matches this update.
