@@ -9,7 +9,7 @@ bash scripts/native/build.sh --plugin --combat-v1
 bash scripts/native/build.sh --combat-v1
 ```
 
-The first command builds the recommended `.work/native-build/combat-v1-optimized/combatloadout.dll` (f2g); the second builds the optional `.work/native-build/combat-v1-optimized/xinput1_4.dll` (native Original DLL). Both compile production diagnostics out. The script generates the Wwise PCM bank and UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes. The native route is retained as an optional source build; this 1.1.1 publication updates the f2g route only.
+The first command builds the recommended `.work/native-build/combat-v1-optimized/combatloadout.dll` (f2g); the second builds a native Original DLL from shared development source. Both compile production diagnostics out. The script generates the Wwise PCM bank and UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes. The second output is not the separately published Nexus native release; this 1.1.1 publication updates the f2g route only.
 
 Focused layout regression:
 
