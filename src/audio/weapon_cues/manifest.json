@@ -1,0 +1,68 @@
+[
+  {
+    "weapon": "Strike",
+    "choice": 1,
+    "file": "Strike/Strike-01-flurry_attack1.wav",
+    "event": "flurry_attack1",
+    "duration": 1.0667708333333332,
+    "source_txtp": "play_aberrant_flurry_attack1 (3298166895=1651971902) {s}=(4134116596=1014453118) {r}.txtp",
+    "sha256": "0e7a9ccec16bdb4af57748b65af50f9ff0cc3a306de2032186e5fcb49490cd74",
+    "peak": 14631,
+    "asset": "strike.wav"
+  },
+  {
+    "weapon": "Cleave",
+    "choice": 1,
+    "file": "Cleave/Cleave-01-slice_combo_01.wav",
+    "event": "slice_combo_01",
+    "duration": 0.9349166666666666,
+    "source_txtp": "play_aberrant_slice_combo_01 (3298166895=1651971902) {r}.txtp",
+    "sha256": "8aa40f3422029522404fc54c41ca3ce6efc622d925e4179d09815d6168d3d45a",
+    "peak": 11704,
+    "asset": "cleave.wav"
+  },
+  {
+    "weapon": "Glaive",
+    "choice": 2,
+    "file": "Glaive/Glaive-02-slash_combo_01.wav",
+    "event": "slash_combo_01",
+    "duration": 1.1,
+    "source_txtp": "play_aberrant_slash_combo_01 (3298166895=748895195) {r}.txtp",
+    "sha256": "f8ce1efb107abe385f4f2f02d51d643c31e0b4f71651d55d88c78bad44caf3bb",
+    "peak": 8610,
+    "asset": "glaive.wav"
+  },
+  {
+    "weapon": "Crush",
+    "choice": 1,
+    "file": "Crush/Crush-01-crush_switch_whoosh.wav",
+    "event": "crush_switch_whoosh",
+    "duration": 1.0495208333333332,
+    "source_txtp": "play_aberrant_crush_switch_whoosh [652281377=1072972400] (4267341601=1651971902) {r}.txtp",
+    "sha256": "22471610e293ecd1c3270d57c0b621a2dd7efd2a700b7d188fb4fb748137b4e6",
+    "peak": 22477,
+    "asset": "crush.wav"
+  },
+  {
+    "weapon": "Drill",
+    "choice": 1,
+    "file": "Drill/Drill-01-drill_switch.wav",
+    "event": "drill_switch",
+    "duration": 1.6791666666666667,
+    "source_txtp": "play_aberrant_drill_switch (3298166895=1651971902) {r}.txtp",
+    "sha256": "ab0f3e211538b4c307ae67234a0325bd6dd36768b2ab23f03f14303fdae7ee15",
+    "peak": 8464,
+    "asset": "drill.wav"
+  },
+  {
+    "weapon": "Extend",
+    "choice": 1,
+    "file": "Extend/Extend-01-extend_attack_switch.wav",
+    "event": "extend_attack_switch",
+    "duration": 1.2805,
+    "source_txtp": "play_aberrant_extend_attack_switch (3298166895=1651971902) [595380414=1655200910] {s}=(4134116596=1014453118) {r}.txtp",
+    "sha256": "7c08e7e1e1c2f92253f62b19243614213d76a496a9262806faeb65417aaf8598",
+    "peak": 10920,
+    "asset": "extend.wav"
+  }
+]

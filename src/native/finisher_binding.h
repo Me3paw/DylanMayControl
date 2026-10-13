@@ -28,6 +28,8 @@ using InputFn = uint8_t* (*)(void*, void*, void*, void*);
 using GraphFn = void (*)(void*, void*, void*, void*);
 inline InputFn input_original=nullptr;
 inline GraphFn graph_original=nullptr;
+using CommitObserver=void (*)(void*,void*,void*,std::uint16_t,bool);
+inline CommitObserver commit_observer=nullptr;
 inline void set_input_original(InputFn f) { input_original=f; }
 inline void set_graph_original(GraphFn f) { graph_original=f; }
 
@@ -382,10 +384,30 @@ inline void graph_detour(void* columns,void* graph,void* context,void* delta) {
     graph_original(columns,graph,context,delta);
 #endif
 }
-inline uint8_t* input_detour(void* output,void* node,void* combo,void* cfg) {
+__attribute__((noinline)) inline uint8_t* input_detour(void* output,void* node,void* combo,void* cfg) {
     if (!input_original) return nullptr;
 #ifdef _WIN32
+    const auto caller=reinterpret_cast<uintptr_t>(__builtin_return_address(0));
     const DWORD incoming=GetLastError();
+    const auto forward=[&](void* input_combo) {
+        SetLastError(incoming);
+        auto* result=input_original(output,node,input_combo,cfg);
+        const DWORD forwarded=GetLastError();
+        // Only this graph call occurs AFTER current-node assignment. Chooser
+        // probes and phase checks call the same helper but must never count.
+        if (commit_observer && caller==image_base()+0x239f5c8) {
+            std::uint16_t accepted=0;std::uint8_t physical[combat_mod::rows::kMinCombo]{};
+            if(result&&combat_native::copy_checked(binding().copy,&accepted,reinterpret_cast<uintptr_t>(result),2)&&
+                combat_native::copy_checked(binding().copy,physical,reinterpret_cast<uintptr_t>(combo),sizeof physical)) {
+                const auto kind=accepted&0xff;
+                const bool mapped=input_combo!=combo;
+                const bool direct=(accepted>>8)&&((kind==0||kind==2)&&
+                    (mapped?(bool(physical[0x28])!=bool(physical[0x2a])):physical[0x28+kind]!=0));
+                commit_observer(node,combo,cfg,accepted,direct);
+            }
+        }
+        SetLastError(forwarded);return result;
+    };
     auto* loan=finisher_chooser_scope::graph_current;
     uint8_t local[combat_mod::rows::kMinCombo]; uint8_t authored=0; bool mapped=false;
     if (loan && loan->remap && finisher_chooser_scope::graph_live() && combo==loan->args.combo_data && cfg==loan->args.combo_cfg) {
@@ -398,12 +420,13 @@ inline uint8_t* input_detour(void* output,void* node,void* combo,void* cfg) {
             SetLastError(incoming);
             // Native d2b0 writes the caller's REAL output, including the
             // authored action kind. Native graph code copies that u16 to C+24.
-            return input_original(output,node,local,cfg);
+            return forward(local);
         }
     }
-    SetLastError(incoming);
-#endif
+    return forward(combo);
+#else
     return input_original(output,node,combo,cfg);
+#endif
 }
 
 // Recomputes the prerequisite list and the feature state; installs/clears the Module readers accordingly. Call after any change and

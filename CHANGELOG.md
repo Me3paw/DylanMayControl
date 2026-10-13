@@ -1,3 +1,11 @@
+# DylanMayControl v1.0.4
+
+- Adds selected native game-audio cues when a primary or secondary weapon switch is accepted into the queue, including during recovery. Cues never replay at handoff; rejected and no-op requests remain silent.
+- Strike, Cleave, Crush, Drill and Extend use audition 01; Glaive uses audition 02. Six verified PCM samples are embedded in a custom Wwise bank and routed through the stock Player/SFX bus, preserving game SFX and master volume.
+- Keeps Combat v1 tuning, manual flow/cancels, repeat rules, native unlocks, fixed 80 cm Enemy Step, bindings and menu unchanged. No new settings or UI.
+- Strict Win64 build/export, queue-before-handoff tests, six exact PCM round trips, native API/resource/retry/lifecycle test doubles, stock-flow checks and isolated input-free Proton boot passed. Audible gameplay and SFX-volume acceptance remains human pending; no performance gain is claimed.
+- This release updates the f2g plugin route only. The optional Original DLL source route and previous release artifacts remain available.
+
 # DylanMayControl v1.0.3
 
 - Adds compatibility with CONTROL Resonant 0.564.629.5 for both native Original DLL and f2g routes.

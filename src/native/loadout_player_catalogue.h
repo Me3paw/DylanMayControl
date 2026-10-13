@@ -48,6 +48,8 @@ inline SRWLOCK state_lock=SRWLOCK_INIT;
 inline loadout_control::Control control;
 inline bool slots_restored=false;
 inline Published published{};
+using CatalogueObserver=void (*)(const Catalogue&);
+inline CatalogueObserver catalogue_observer=nullptr;
 inline std::uint64_t catalogue_token=0;
 inline native_ui::Receipt pending_receipt{};
 inline loadout_control::Result pending_result=loadout_control::Result::Unbound;
@@ -277,6 +279,7 @@ inline void body(void* columns,void* state,void* stacks,void* facts,void* graph,
             }
             observed_player_actor.store(source.actor);
             CRMOD_DIAGNOSTIC(++captured); configure_current(source);
+            if (catalogue_observer) catalogue_observer(source);
         } else { CRMOD_DIAGNOSTIC(++invalid); invalidate_published(); }
     }
     SetLastError(forwarded);

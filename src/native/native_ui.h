@@ -261,7 +261,7 @@ function mount() {
             else if(root.engine && typeof root.engine.trigger==='function') root.engine.trigger('OnCancel');
         },send:function(request,reply){return openingHost.send.call(openingHost,request,reply);},
             onClose:function(){if(openingHost.controls)openingHost.controls(false);if(openingHost.panel)openingHost.panel(false);}};
-        ['getBindings','saveBindings','saveContactMargin','saveLootMultiplier','controls','panel','capture'].forEach(function(method){if(typeof openingHost[method]==='function') panelHost[method]=function(){if(method==='capture'&&arguments[0]===false)captureReleaseUntil=Date.now()+150;return openingHost[method].apply(openingHost,arguments);};});
+        ['getBindings','saveBindings','saveLootMultiplier','controls','panel','capture'].forEach(function(method){if(typeof openingHost[method]==='function') panelHost[method]=function(){if(method==='capture'&&arguments[0]===false)captureReleaseUntil=Date.now()+150;return openingHost[method].apply(openingHost,arguments);};});
         panel=root.CRLoadoutPanel.create(panelHost,anchor);panel.update(model);
         var region=document.getElementById('cr-loadout-panel'),nativeLabel=anchor.querySelector('.options-keybind__label')||anchor.querySelector('.loadout-heading__content')||anchor;
         var family=root.getComputedStyle(nativeLabel).fontFamily;region.style.fontFamily=family;

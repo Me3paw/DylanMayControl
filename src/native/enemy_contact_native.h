@@ -15,7 +15,7 @@
 // Diagnostics and fresh entity-step contact queries. No native physics pointer
 // or contact result survives the callback that resolved it.
 namespace enemy_contact_native {
-inline double contact_margin() {return mod_bindings::snapshot().contact_margin_mm/1000.0;}
+inline constexpr double contact_margin() {return 0.8;}
 constexpr uint32_t kController=0x9b382c56, kPhysicsEntity=0x6ebfd07c, kPlane=0xc0853848;
 constexpr uint32_t kInput=step_binding::fnv1a("heron::player_input::component::Input");
 constexpr uint32_t kRequest=step_binding::fnv1a("heron::jump::component::NextJumpRequest");
@@ -228,6 +228,7 @@ inline bool body_valid(uint64_t physics_world,uint64_t key) {
 }
 inline bool physical_overlap(const Player& player,uint64_t scene,uint64_t key,uint64_t target,unsigned& queried,int64_t deadline,bool* physical=nullptr,double margin=contact_margin(),unsigned query_limit=32) {
     using namespace entity_capsule_geometry;
+    (void)target;
     if(!geometry_query || !physics_module || !body_valid(scene,key)) return false;
     uint64_t table=0,body=0;
     if(!field(scene,0x1d0,table) || !cp(combat_native::at(table,static_cast<uint32_t>(key),8),&body,8)) return false;
@@ -242,6 +243,8 @@ inline bool physical_overlap(const Player& player,uint64_t scene,uint64_t key,ui
     Capsule cap{};
     reinterpret_cast<void* (*)(void*,void*)>(pose_fn)(reinterpret_cast<void*>(body),&actor_pose);
     if(!valid(actor_pose) || !capsule(player.position,player.quaternion,player.radius,player.height,cap,capsule_pose)) return false;
+    // Contact allowance expands only this local query; the live controller stays native.
+    if(!inflate_query(cap,margin))return false;
     for(unsigned i=0;i<count && queried<std::min(32u,query_limit) && tick()<deadline;++i) {
         const auto shape=shapes[i],flags_fn=method(shape,0x130),local_fn=method(shape,0x60),geometry_fn=method(shape,0x48);
         if(!flags_fn || !local_fn || !geometry_fn) { ++fresh_unavailable; continue; }
@@ -249,34 +252,14 @@ inline bool physical_overlap(const Player& player,uint64_t scene,uint64_t key,ui
         reinterpret_cast<void* (*)(void*,void*)>(flags_fn)(reinterpret_cast<void*>(shape),&flags);
         const auto geometry=reinterpret_cast<uint64_t (*)(void*)>(geometry_fn)(reinterpret_cast<void*>(shape));
         if(!geometry || !field(geometry,0,type)) continue;
-        if(!entity_shape(flags,type)) { record_contact(target,key,flags,type,false,player.position); continue; }
+        if(!entity_shape(flags,type)) continue;
         alignas(16) Pose local_pose{},world_pose{};
         reinterpret_cast<void* (*)(void*,void*)>(local_fn)(reinterpret_cast<void*>(shape),&local_pose);
         if(!compose(actor_pose,local_pose,world_pose) || !body_valid(scene,key)) continue;
         if(physical) *physical=true;
         const uint32_t query_flags=1;
-        Capsule target_capsule{};
-        const bool have_target_capsule=type==2 && cp(geometry,&target_capsule,sizeof target_capsule);
-        const auto log_shape=[&](bool hit,float distance,bool qualified=false) {
-            record_contact(target,key,flags,type,hit,player.position,distance,&cap,&capsule_pose,&world_pose,
-                have_target_capsule ? &target_capsule : nullptr,qualified,margin);
-        };
-        const float distance=point_distance ? point_distance(capsule_pose.p,reinterpret_cast<void*>(geometry),&world_pose,nullptr,nullptr,&query_flags) : -1;
-        double gap=0;const bool have_gap=have_target_capsule && surface_gap(cap,capsule_pose,target_capsule,world_pose,gap);
-        // Capsule pairs use exact surface distance plus the selected2/3.5/5cm margin.
-        // Other shapes retain containment rejection, then use margin-expanded overlap.
-        if(!have_gap && (!std::isfinite(distance) || distance<=0)) { log_shape(false,distance); continue; }
         ++queried; ++fresh_queries;
-        const bool overlap=geometry_query(&cap,&capsule_pose,reinterpret_cast<void*>(geometry),&world_pose,&query_flags,nullptr)!=0;
-        bool qualified=have_gap ? gap<=margin : overlap;
-        if(!have_gap && !overlap && queried<std::min(32u,query_limit) && tick()<deadline) {
-            // Expanding only capsule radius by the selected margin tests the same surface margin
-            // against other native physical shapes without centre proximity.
-            Capsule expanded=cap;expanded.radius+=static_cast<float>(margin);
-            ++queried;++fresh_queries;
-            qualified=geometry_query(&expanded,&capsule_pose,reinterpret_cast<void*>(geometry),&world_pose,&query_flags,nullptr)!=0;
-        }
-        log_shape(overlap,std::isfinite(distance)?distance:-1,qualified);
+        const bool qualified=geometry_query(&cap,&capsule_pose,reinterpret_cast<void*>(geometry),&world_pose,&query_flags,nullptr)!=0;
         if(qualified && body_valid(scene,key)) return true;
     }
     return false;
@@ -284,7 +267,7 @@ inline bool physical_overlap(const Player& player,uint64_t scene,uint64_t key,ui
 // Resolve the typed PhysicsScene global again for each actual jump press.
 // It is accepted only after its identity matched a native controller borrow.
 // Candidate proximity is ONLY a broadphase filter; only exact body geometry
-// overlap or capsule surface gap within the selected margin may authorize a step. No contact result/pointer survives this call.
+// overlap or capsule surface gap within the fixed margin may authorize a step. No contact result/pointer survives this call.
 inline SRWLOCK nearby_lock=SRWLOCK_INIT;
 inline nearby_candidates::Cache nearby_cache{};
 inline uint64_t discovery_world=0,discovery_player=0;
@@ -312,7 +295,7 @@ inline void discover_nearby(const Player& p) {
             cp(combat_native::at(p.world,arch,4,0x10448),&rows,4) && rows<=combat_native::cols::kMaxRow) {
             for(;discovery_row<rows && inspected<256 && tick()-started<frequency/1000;++discovery_row) {
                 ++inspected;uint64_t actor=0;float position[4]{};
-                if(!cp(combat_native::at(chunk,discovery_row,8,0x10),&actor,8) || actor==p.actor ||
+                if(!cp(combat_native::at(chunk,discovery_row,8,0x10),&actor,8) || actor==p.actor || !step_binding::is_enemy(p.world,actor) ||
                     !cp(combat_native::at(chunk+transform,discovery_row,0x20,0x10),position,sizeof position)) continue;
                 float distance=0;for(unsigned i=0;i<3;++i) {const float d=position[i]-p.position[i];distance+=d*d;}
                 nearby_cache.offer(actor,distance,controller,static_cast<uint32_t>(GetTickCount64()));
@@ -341,7 +324,12 @@ inline bool contact_now(uint64_t world,uint64_t actor,uint64_t* hit_actor) {
     if (p.height<2*p.radius) p.height=2*p.radius;
     uint64_t header=0,arches=0;
     if (!field(world,0x58478,header) || !field(header,8,arches) || !arches || arches>0xffff) return false;
-    const auto started=tick(); unsigned queried=0,scanned=0;const double margin=contact_margin();
+    const auto started=tick(); unsigned queried=0,scanned=0;
+#if CRMOD_COMBAT_V1
+    const double margin=contact_margin(); // Fixed80cm contact reach; legacy saved tuning cannot override it.
+#else
+    constexpr double margin=0;
+#endif
     uint64_t selected_column=0,selected_actor=0;Stamp priority{};
     const bool have_priority=step_binding::resolve_player_column(world,actor,
         step_binding::fnv1a("heron::camera_lock_on::component::CameraSelectedTarget"),0x10,&selected_column) &&
@@ -354,16 +342,12 @@ inline bool contact_now(uint64_t world,uint64_t actor,uint64_t* hit_actor) {
             if(scan.elapsed_us>=4000) scan.incomplete|=Time;
             if(queried>=32) scan.incomplete|=QueryCap;
             if(scanned>=4096) scan.incomplete|=RowCap;
-            if(contact_scans_logged.load()<4096 && TryAcquireSRWLockExclusive(&contact_log_lock)) {
-                if(contact_scan_count<contact_scans.size()) { contact_scans[contact_scan_count++]=scan;++contact_scans_logged; }
-                else ++contact_log_dropped;
-                ReleaseSRWLockExclusive(&contact_log_lock);
-            }
         }
     } finish{scan,queried,scanned,started};
     if(arches>4096) scan.incomplete|=ArchCap;
     const auto expired=[&]() { return tick()-started>=frequency/250; }; // 4ms cap between calls, only on a fresh jump.
     const auto query_entity=[&](uint64_t target,const Stamp& target_stamp) -> bool {
+            if(!step_binding::is_enemy(world,target)) return false;
             if(have_priority && target==selected_actor) scan.selected_seen=true;
             uint64_t reference=0;
             if(!column(target_stamp,kPhysicsEntity,0x10,reference) || expired()) return false;
@@ -372,7 +356,7 @@ inline bool contact_now(uint64_t world,uint64_t actor,uint64_t* hit_actor) {
             if (index==UINT32_MAX || !field(scene,0xc8,table) || !table ||
                 !field(combat_native::at(table,index,0x70),0x20,descriptor) || !descriptor ||
                 !field(descriptor,0x90,bodies) || !field(descriptor,0xa8,count) || (count && !bodies)) return false;
-            bool controller_checked=false;const auto query_start=queried;
+            const auto query_start=queried;
             for (uint32_t body=0;body<count && queried<32 && queried-query_start<8 && !expired();++body) {
                 uint64_t key=0,flags_table=0; uint16_t flags=0;
                 if (!cp(combat_native::at(bodies,body,8),&key,8) || !body_valid(scene,key) ||
@@ -387,13 +371,9 @@ inline bool contact_now(uint64_t world,uint64_t actor,uint64_t* hit_actor) {
                     !cp(reference,current_bytes,sizeof current_bytes) || std::memcmp(current_bytes,bytes,sizeof bytes)) continue;
                 bool physical=false;
                 const bool body_hit=physical_overlap(p,scene,key,target,queried,started+frequency/250,&physical,margin,std::min(32u,query_start+8));
-                bool controller_hit=false;
-                if(physical && !controller_checked && !expired()) {
-                    controller_hit=observe_controller(p,target_stamp,target,true,margin);controller_checked=true;
-                }
-                const bool hit=body_hit || controller_hit;
+                const bool hit=body_hit;
                 if (hit && scene_resource(world,w2,s2) && w2==wrapper && s2==scene &&
-                    unchanged(world,actor,p.owner) && unchanged(world,target,target_stamp) && body_valid(scene,key) &&
+                    unchanged(world,actor,p.owner) && unchanged(world,target,target_stamp) && step_binding::is_enemy(world,target) && body_valid(scene,key) &&
                     cp(p.state+0x10,current_position,sizeof current_position) && !std::memcmp(current_position,p.position,sizeof current_position) &&
                     cp(plane,current_quaternion,sizeof current_quaternion) && !std::memcmp(current_quaternion,p.quaternion,sizeof current_quaternion) &&
                     cp(reference,current_bytes,sizeof current_bytes) && !std::memcmp(current_bytes,bytes,sizeof bytes) &&
@@ -435,6 +415,7 @@ inline bool contact_now(uint64_t world,uint64_t actor,uint64_t* hit_actor) {
             float distance=0; bool finite=true;
             for (unsigned i=0;i<3;++i) { finite=finite && std::isfinite(position[i]); const auto d=position[i]-p.position[i]; distance+=d*d; }
             if (!finite || distance>144) continue; // broadphase only, never contact authority
+            if(!step_binding::is_enemy(world,target)) continue;
             if(have_priority && target==selected_actor) scan.selected_seen=true;
             Stamp target_stamp{}; if (!stamp(world,target,target_stamp) || target_stamp.loc.arch!=arch || target_stamp.loc.row!=row) continue;
             if(query_entity(target,target_stamp)) return true;
@@ -536,6 +517,19 @@ inline void capture(const void* cols,const void* ctx,const Invocation& invocatio
     r.elapsed_us=static_cast<uint32_t>((tick()-started)*1000000/frequency);
     if (r.elapsed_us>=2000) r.incomplete|=Time;
     ReleaseSRWLockExclusive(&scan_lock); push(r);
+}
+// Quiet runtime validation shares the native collision scope without probing.
+inline void verify_scene(const void* cols,const void* ctx) {
+    ErrorGuard guard; Player p{};
+    if (!enabled.load() || !stopping || stopping->load() || !player(cols,ctx,p)) return;
+    uint64_t native_scene=0,wrapper=0,current_scene=0;
+    if (physics(ctx,native_scene) && scene_resource(p.world,wrapper,current_scene) && current_scene==native_scene) {
+        verified_scene_world.store(p.world);
+#if CRMOD_COMBAT_V1
+        const auto now=static_cast<uint32_t>(GetTickCount64());auto next=next_ms.load();
+        if((!next||static_cast<int32_t>(now-next)>=0)&&next_ms.compare_exchange_strong(next,now+100))discover_nearby(p);
+#endif
+    }
 }
 inline Invocation begin(const void* cols,const void* ctx) {
     ErrorGuard guard; Invocation result{}; Player p{};

@@ -94,8 +94,12 @@ inline std::uint64_t observed_player() { return loadout_player_catalogue::observ
 inline void collision_detour(void* a,void* b,void* c,void* d) {
 #if !CRMOD_DIAGNOSTICS
     const DWORD incoming=GetLastError();
-    if(!stopping.load() && shared_stopping && !shared_stopping->load() && player_collision(a))
+    if(!stopping.load() && shared_stopping && !shared_stopping->load() && player_collision(a)) {
         step_binding::feed_world_from_ctx(b);
+#if CRMOD_COMBAT_V1
+        enemy_contact_native::verify_scene(a,b);
+#endif
+    }
     SetLastError(incoming);
     original_collision(a,b,c,d);
 #else

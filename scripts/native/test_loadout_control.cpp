@@ -1,4 +1,5 @@
 #include "loadout_control.h"
+#include "loadout_queue_audio.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -21,6 +22,10 @@ struct Native {
     Submission next = Submission::Submitted;
     unsigned validations = 0, submissions = 0;
     std::vector<Write> writes;
+    std::vector<Write> cues;
+    static void queued(void* ctx,Channel channel,std::uint32_t id) {
+        static_cast<Native*>(ctx)->cues.push_back({channel,id,0});
+    }
     TerminalProof terminal_reply{};
     unsigned terminal_queries = 0;
     static Validation validate(void* ctx, Channel ch, std::uint32_t id) {
@@ -144,7 +149,40 @@ static void terminal_regressions() {
     assert(c.pump(fresh, P) == Result::Rejected);
     assert(c.pump(fresh, P) == Result::NoChange && n.writes.size() == 5);
 }
+static void queue_feedback_regressions() {
+    Native n;auto a=n.adapter();a.queued=&Native::queued;Control c;
+    assert(configure(c,a,P,0,20)==Result::Configured);
+    assert(configure(c,a,P,1,10)==Result::Configured);
+    assert(n.cues.empty());
+    n.gates[0]=Boundary::Recovery;
+    assert(c.cycle(a,P)==Result::Queued && n.cues.size()==1 && n.cues.back().id==20);
+    assert(c.pump(a,P)==Result::Waiting && n.cues.size()==1 && n.writes.empty());
+    assert(c.request_slot(a,P,1)==Result::NoChange && n.cues.size()==1);
+    assert(c.request_slot(a,P,0)==Result::Queued && n.cues.size()==2);
+    n.gates[0]=Boundary::Legal;
+    assert(c.pump(a,P)==Result::Submitted && n.cues.size()==2);
+    const auto first=n.writes.back();
+    assert(c.request_slot(a,P,1)==Result::Queued && n.cues.size()==3 && n.cues.back().id==10);
+    assert(c.pump(a,P)==Result::Waiting && n.cues.size()==3);
+    complete(c,n,a,first);
+    assert(c.pump(a,P)==Result::Submitted && n.cues.size()==3);
+    complete(c,n,a,n.writes.back());
+    assert(c.pump(a,P)==Result::NoChange && n.cues.size()==3);
+    n.entries[1].status=Status::Unavailable;
+    assert(c.request_slot(a,P,0)==Result::Rejected && n.cues.size()==3);
+    assert(c.request_slot({},P,0)==Result::Unbound && n.cues.size()==3);
+    assert(c.on_menu_event(a,{Action::SelectSlot,P,0,0,99})==Result::Rejected && n.cues.size()==3);
+    constexpr const char* names[]={"Strike","Cleave","Glaive","Crush","Drill","Extend"};
+    for(unsigned i=0;i<6;++i) {
+        const auto channel=i<3?P:S;
+        assert(loadout_queue_audio::cue_index(channel,names[i])==i);
+        assert(loadout_queue_audio::cue_index(i<3?S:P,names[i])==6);
+    }
+    assert(loadout_queue_audio::cue_index(P,"Unknown")==6);
+    assert(loadout_queue_audio::cue_index(P,nullptr)==6);
+}
 int main() {
+    queue_feedback_regressions();
     {
         Native n;auto a=n.adapter();Control first;
         assert(configure(first,a,P,0,20)==Result::Configured);

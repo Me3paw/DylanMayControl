@@ -7,7 +7,7 @@
 #include <cstdio>
 namespace mod_bindings {
 using Assignments=std::array<std::array<std::uint32_t,3>,2>;
-struct Settings { std::array<unsigned,2> key{VK_PRIOR,VK_NEXT},pad{4,8},key_alt{}; unsigned contact_margin_mm=35,back_pause_ms=50,loot_multiplier=3; Assignments loadout{};std::uint64_t revision=1; };
+struct Settings { std::array<unsigned,2> key{VK_PRIOR,VK_NEXT},pad{4,8},key_alt{}; unsigned contact_margin_mm=300,back_pause_ms=50,loot_multiplier=3; Assignments loadout{};std::uint64_t revision=1; };
 inline SRWLOCK lock=SRWLOCK_INIT;
 inline Settings settings{};
 inline std::atomic<std::uint64_t> saved_revision{0};
@@ -88,11 +88,14 @@ inline StartupPolicy startup_policy(const wchar_t* config){
     return {GetPrivateProfileIntW(L"Mod",L"Enabled",1,config)!=0,
         GetPrivateProfileIntW(L"Diagnostics",L"Observe",0,config)!=0};
 }
+inline unsigned normalize_contact_margin_mm(std::int64_t value) {
+    if(value<300)return 300;if(value>1500)return 1500;return static_cast<unsigned>(value)/100*100;
+}
 inline bool valid(const Settings& s) {
     constexpr unsigned allowed=0x3f3ffu;
     if(s.loot_multiplier<1 || s.loot_multiplier>10)return false;
     for(const auto& channel:s.loadout)for(auto id:channel)if(id==UINT32_MAX)return false;
-    if(s.contact_margin_mm!=20 && s.contact_margin_mm!=35 && s.contact_margin_mm!=50) return false;
+    if(s.contact_margin_mm<300 || s.contact_margin_mm>1500 || s.contact_margin_mm%100) return false;
     if(s.back_pause_ms!=10 && s.back_pause_ms!=20 && s.back_pause_ms!=30 && s.back_pause_ms!=40 && s.back_pause_ms!=50 && s.back_pause_ms!=500) return false;
     for (unsigned i=0;i<2;++i) {
         if (s.key[i]>254 || s.key_alt[i]>254 || (s.pad[i] && ((s.pad[i]&(s.pad[i]-1)) || (s.pad[i]&~allowed)))) return false;
@@ -126,8 +129,7 @@ inline Settings read_file() {
     if(!GetPrivateProfileIntW(L"Controls",L"PadDefaultsVersion",0,path) && !s.pad[0] && !s.pad[1])s.pad={4,8};
     s.key_alt[0]=GetPrivateProfileIntW(L"Controls",L"PrimaryAltKey",0,path);
     s.key_alt[1]=GetPrivateProfileIntW(L"Controls",L"SecondaryAltKey",0,path);
-    s.contact_margin_mm=GetPrivateProfileIntW(L"Gameplay",L"ContactMarginMm",35,path);
-    if(s.contact_margin_mm!=20 && s.contact_margin_mm!=35 && s.contact_margin_mm!=50) s.contact_margin_mm=35;
+    s.contact_margin_mm=normalize_contact_margin_mm(static_cast<std::int32_t>(GetPrivateProfileIntW(L"Gameplay",L"ContactMarginMm",300,path)));
     s.back_pause_ms=GetPrivateProfileIntW(L"Gameplay",L"BackPauseMs",50,path);
     if(s.back_pause_ms!=10 && s.back_pause_ms!=20 && s.back_pause_ms!=30 && s.back_pause_ms!=40 && s.back_pause_ms!=50 && s.back_pause_ms!=500) s.back_pause_ms=50;
     s.loot_multiplier=GetPrivateProfileIntW(L"Gameplay",L"LootMultiplier",3,path);

@@ -11,9 +11,9 @@ MinHook: Tsuda Kageyu, with HDE credits to Vyacheslav Patkov. BSD notices are in
 
 Research/tool references: f2g loader by fame2gin; Mod Settings Menu by kkyleeb21; SonOfSaris/GravityControl; GrzybDev/NorthlightTools; Resonant Mod Tool; CRLooseFiles by Jaumns. These references were used for investigation. Their first-party implementations and downloaded binaries are not redistributed in this package. The f2g loader is required only by the separate Main/f2g route; this Original DLL archive does not require it.
 
-Development was assisted by OpenAI Codex and Anthropic Claude, under the author's direction and gameplay testing. The mod contains AI-generated code; the accompanying page text was prepared with AI assistance. The screenshot is an unchanged author-provided gameplay capture.
+Development was AI Assisted by OpenAI Codex and Anthropic Claude, under the author's direction. No AI-generated media or assets are included. Audible gameplay acceptance remains human pending.
 
-Permissions: original author code and documentation are MIT-licensed. You may use, copy, modify, distribute and sell covered code while retaining the MIT notice; see LICENSE. This permission excludes Remedy's game icons and gameplay imagery, including src/ui/weapon_icons.js; their rights remain with Remedy and the applicable fan-content rules. MinHook and HDE retain their included BSD notices. The compiled mod includes game icons, so the original-code license is not a grant to sell or separately reuse those assets.
+Permissions: original author code and documentation are MIT-licensed. You may use, copy, modify, distribute and sell covered code while retaining the MIT notice; see LICENSE. This permission excludes Remedy's game icons and audio, including src/ui/weapon_icons.js and src/audio/weapon_cues; their rights remain with Remedy and the applicable fan-content rules. MinHook and HDE retain their included BSD notices. The compiled mod includes game icons and audio, so the original-code license is not a grant to sell or separately reuse those assets.
 
 Source: https://github.com/Me3paw/DylanMayControl
 Exact v1.0.2 Original DLL source: included SOURCE/

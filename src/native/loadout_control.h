@@ -42,6 +42,7 @@ struct Adapter {
     Submission (*submit)(void*, Channel, std::uint32_t, std::uint64_t) = nullptr;
     TerminalProof (*terminal)(void*, Channel, std::uint32_t,
                              std::uint64_t, std::uint64_t) = nullptr;
+    void (*queued)(void*, Channel, std::uint32_t) = nullptr;
     bool configuration_bound() const {
         return catalogue_epoch && owner_scope_current &&
                context && validate;
@@ -171,6 +172,7 @@ public:
                 return Result::NoChange;
             }
             state.pending = {true, event.slot, slot.id};
+            if(adapter.queued)adapter.queued(adapter.context,event.channel,slot.id);
             return Result::Queued;
         }
         }

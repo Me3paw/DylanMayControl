@@ -231,7 +231,7 @@ inline std::string bindings_json(std::uint64_t generation,bool accepted=true,boo
         ",\"key_alt_primary\":"+decimal(s.key_alt[0])+",\"key_alt_secondary\":"+decimal(s.key_alt[1])+
         ",\"pad_primary\":"+decimal(s.pad[0])+",\"pad_secondary\":"+decimal(s.pad[1])+
         ",\"loot_multiplier\":"+decimal(s.loot_multiplier)+
-        ",\"back_pause_ms\":"+decimal(s.back_pause_ms)+",\"contact_margin_mm\":"+decimal(s.contact_margin_mm)+",\"revision\":"+u64(s.revision)+",\"saved\":"+boolean(mod_bindings::saved_revision.load()==s.revision)+
+        ",\"back_pause_ms\":"+decimal(s.back_pause_ms)+",\"revision\":"+u64(s.revision)+",\"saved\":"+boolean(mod_bindings::saved_revision.load()==s.revision)+
         ",\"save_error\":"+boolean(mod_bindings::save_error.load())+",\"pad_buttons\":"+decimal(mod_bindings::last_pad.load())+
         ",\"sample_sequence\":"+u64(sample)+",\"pad_presses\":"+events+",\"key_presses\":"+key_events+",\"capture_releasing\":"+boolean(mod_bindings::capture_releasing.load())+",\"pad_dropped\":"+decimal(mod_bindings::pad_dropped.load())+"}";
 }
@@ -311,13 +311,6 @@ inline void invoke(native_ui_invoke_probe::Handler* handler,void* context) {
     }
     else if(rpc(input,"cr.host.loot.v1:",values,2) && values[0]==generation && values[1]>=1 && values[1]<=10) {
         auto next=mod_bindings::snapshot();next.loot_multiplier=static_cast<unsigned>(values[1]);output=bindings_json(generation,mod_bindings::apply(next));
-    }
-    else if(rpc(input,"cr.host.contact.v1:",values,2) && values[0]==generation) {
-        bool accepted=false;
-        if(values[1]==20 || values[1]==35 || values[1]==50) {
-            auto next=mod_bindings::snapshot();next.contact_margin_mm=static_cast<unsigned>(values[1]);accepted=mod_bindings::apply(next);
-        }
-        output=bindings_json(generation,accepted);
     }
     else if(rpc(input,"cr.host.pause.v1:",values,2) && values[0]==generation) {
         bool accepted=false;

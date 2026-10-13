@@ -13,7 +13,11 @@ int main(int argc,char** argv) {
         return 0;
     }
     Settings s{};
-    assert(valid(s) && s.pad[0]==4 && s.pad[1]==8 && s.loot_multiplier==3);
+    assert(valid(s) && s.pad[0]==4 && s.pad[1]==8 && s.loot_multiplier==3 && s.contact_margin_mm==300);
+    for(unsigned cm=30;cm<=150;cm+=10){auto value=s;value.contact_margin_mm=cm*10;assert(valid(value));}
+    for(unsigned mm:{0u,299u,350u,1501u,2000u}){auto value=s;value.contact_margin_mm=mm;assert(!valid(value));}
+    assert(normalize_contact_margin_mm(-1)==300&&normalize_contact_margin_mm(0)==300);
+    assert(normalize_contact_margin_mm(200)==300&&normalize_contact_margin_mm(2000)==1500&&normalize_contact_margin_mm(1250)==1200);
     s.loot_multiplier=0;assert(!valid(s));s.loot_multiplier=11;assert(!valid(s));s.loot_multiplier=3;
     s.key={65,65}; assert(!valid(s));
     s.key={65,34}; s.pad={4,8}; assert(valid(s));
@@ -75,6 +79,7 @@ int main(int argc,char** argv) {
     reset_pad_input();assert(!capture_releasing.load()&&take_key_presses().count==0);
     wchar_t temp[MAX_PATH]{}; assert(GetTempPathW(MAX_PATH,temp));
     swprintf(path,MAX_PATH,L"%lscrmod-bindings-test-%lu.ini",temp,GetCurrentProcessId());
+    (void)DeleteFileW(path); // A previous failed helper may have left this PID-named test file.
     assert(startup_policy(path).enabled && !startup_policy(path).observe);
     assert(WritePrivateProfileStringW(L"Diagnostics",L"Observe",L"1",path));
     assert(startup_policy(path).enabled && startup_policy(path).observe);
@@ -88,7 +93,7 @@ int main(int argc,char** argv) {
     assert(GetPrivateProfileIntW(L"Controls",L"PrimaryPad",0,path)==0x10000);
     assert(GetPrivateProfileIntW(L"Controls",L"PrimaryAltKey",0,path)==66);
     assert(GetPrivateProfileIntW(L"Controls",L"SecondaryAltKey",0,path)==67);
-    assert(GetPrivateProfileIntW(L"Gameplay",L"ContactMarginMm",0,path)==35);
+    assert(GetPrivateProfileIntW(L"Gameplay",L"ContactMarginMm",0,path)==300);
     assert(GetPrivateProfileIntW(L"Gameplay",L"LootMultiplier",0,path)==3);
     Assignments ids{{{{3413371114u,698021297u,0}},{{2860349769u,0,4201352106u}}}};
     assert(WritePrivateProfileStringW(L"Other",L"Keep",L"untouched",path));
@@ -105,6 +110,14 @@ int main(int argc,char** argv) {
     assert(waited==WAIT_OBJECT_0 && exit==0); // A fresh process reads the persisted IDs and existing bindings.
     wchar_t kept[32]{};assert(GetPrivateProfileStringW(L"Other",L"Keep",L"",kept,32,path)>0 && wcscmp(kept,L"untouched")==0);
     assert(WritePrivateProfileStringW(L"Loadout",L"PrimarySlot3",L"-1",path));assert(read_file().loadout[0][2]==0);
+    for(unsigned cm=30;cm<=150;cm+=10){auto next=snapshot();next.contact_margin_mm=cm*10;assert(apply(next));persist(true);assert(read_file().contact_margin_mm==cm*10);}
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"35",path));assert(read_file().contact_margin_mm==300);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"200",path));assert(read_file().contact_margin_mm==300);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"1250",path));assert(read_file().contact_margin_mm==1200);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"0",path));assert(read_file().contact_margin_mm==300);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"2000",path));assert(read_file().contact_margin_mm==1500);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",L"-1",path));assert(read_file().contact_margin_mm==300);
+    assert(WritePrivateProfileStringW(L"Gameplay",L"ContactMarginMm",nullptr,path));assert(read_file().contact_margin_mm==300);
     assert(DeleteFileW(path)); path[0]=0;
     puts("PASS: bindings, trigger masks, queued quick taps, focus/close baselines, native INI persistence and cleanup");
 }

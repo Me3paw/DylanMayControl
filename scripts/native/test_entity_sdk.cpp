@@ -2,9 +2,12 @@
 #include "../../src/native/entity_capsule_geometry.h"
 #include <cassert>
 #include <cstdio>
-int main() {
+#include <filesystem>
+int main(int argc,char** argv) {
+    assert(argc==2 && "Pass the path to your own PhysXCommon_64.dll");
     using namespace entity_capsule_geometry;
-    auto dll=LoadLibraryExW(L"Z:\\media\\E\\CONTROL-Resonant-SteamRIP.comm\\CONTROL-Resonant-SteamRIP\\CONTROL Resonant\\PhysXCommon_64.dll",nullptr,LOAD_WITH_ALTERED_SEARCH_PATH);
+    const std::filesystem::path path(argv[1]);
+    auto dll=LoadLibraryExW(path.c_str(),nullptr,LOAD_WITH_ALTERED_SEARCH_PATH);
     assert(dll);
     using Overlap=unsigned char (*)(const void*,const void*,const void*,const void*,const unsigned*,void*);
     using Distance=float (*)(const float*,const void*,const void*,float*,unsigned*,const unsigned*);
