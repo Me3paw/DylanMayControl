@@ -122,7 +122,6 @@
             controls: function (open) { return bindingsCall("cr.host.controls.v1:" + generation + ":" + (open ? "1" : "0")); },
             saveBackPause: function(value,done) {return bindingsCall("cr.host.pause.v1:"+generation+":"+value,done);},
             saveLootMultiplier:function(value,done){return bindingsCall("cr.host.loot.v1:"+generation+":"+value,done);},
-            saveContactMargin: function(value,done) {return bindingsCall("cr.host.contact.v1:"+generation+":"+value,done);},
             saveBindings: function (value, done) {
                 return bindingsCall("cr.host.bind.v1:" + generation + ":" + value.key_primary + ":" + value.key_secondary +
                     ":" + value.pad_primary + ":" + value.pad_secondary + ":" + (value.key_alt_primary||0) + ":" + (value.key_alt_secondary||0), done);

@@ -35,6 +35,11 @@ inline bool capsule(const float* position,const float* plane,float radius,float 
     for (unsigned i=0;i<3;++i) pose.p[i]=position[i]+offset[i];
     return valid(pose);
 }
+// Expands only a local query capsule; its segment and pose stay native.
+inline bool inflate_query(Capsule& cap,double margin) {
+    if(!std::isfinite(margin)||margin<0||margin>2||!std::isfinite(cap.radius)||cap.radius<=0)return false;
+    cap.radius+=static_cast<float>(margin);return true;
+}
 inline bool compose(const Pose& actor,const Pose& local,Pose& world) {
     if(!valid(actor) || !valid(local)) return false;
     multiply(actor.q,local.q,world.q); float offset[3]{}; rotate(actor.q,local.p,offset);

@@ -167,6 +167,7 @@ static bool reply(SOCKET s, const char* text) {
 #endif
 
 static void stop_services() {
+    loadout_queue_audio::stop();
     loadout_player_catalogue::stop();
     loot_multiplier::enabled.store(false);
     gameplay_runtime::stop();
@@ -202,6 +203,7 @@ static DWORD WINAPI service(void* reference) {
         fflush(log);
         selection_observer::start(log, stopping, true,backend);
         while (!stopping.load()) {
+            if(loadout_selection_bridge::enabled.load())loadout_queue_audio::prepare(self_module,stopping);
             { performance_log::Scope timing(performance_log::Phase::Tick); gameplay_runtime::tick(); }
             {
             performance_log::Scope timing(performance_log::Phase::Flush);
@@ -258,6 +260,7 @@ static DWORD WINAPI service(void* reference) {
         fflush(log);
         selection_observer::start(log, stopping,false,backend);
         while (!stopping.load()) {
+            if(loadout_selection_bridge::enabled.load())loadout_queue_audio::prepare(self_module,stopping);
             gameplay_runtime::tick();
             gameplay_runtime::flush(log);
             loot_multiplier::flush(log);
@@ -378,6 +381,7 @@ static DWORD WINAPI service(void* reference) {
     mod_bindings::start();
     selection_observer::start(nullptr,stopping,true,backend);
     while(!stopping.load()) {
+        if(loadout_selection_bridge::enabled.load())loadout_queue_audio::prepare(self_module,stopping);
         sample_loadout_cycle_keys(nullptr);
         Sleep(10);
     }

@@ -9,6 +9,11 @@
 #include "native_ui_transport.h"
 #include "loadout_selection_bridge.h"
 #include "loot_multiplier.h"
+#if CRMOD_COMBAT_V1
+#include "combat_v1_damage.h"
+#include "combat_v1_step.h"
+#include "combat_v1_wave.h"
+#endif
 #include "controller_menu_input.h"
 #include "split_form_retention.h"
 
@@ -524,7 +529,82 @@ static void start(FILE* log, const std::atomic<bool>& stopping, bool manual_requ
                     loot_ready=one==MH_OK && two==MH_OK && three==MH_OK;
                     if(loot_ready)for(auto rva:{0x2737b00u,0x21cf140u,0x21cc390u})loot_ready=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+rva))==MH_OK && loot_ready;
                 }
+#if CRMOD_COMBAT_V1
+                const bool combat_v1_ready=hook_status==MH_OK && combat_v1_damage::prepare(game_base,stopping);
+                const bool combat_v1_runtime_ready=combat_v1_ready && finisher_commit_ready && combat_v1_runtime::prepare(game_base,stopping);
+                const bool combat_v1_wave_ready=combat_v1_runtime_ready && combat_v1_wave::prepare(game_base);
+                const bool combat_v1_step_ready=combat_v1_runtime_ready && combat_v1_step_native::prepare(game_base,stopping);
+                if (combat_v1_ready) {
+                    hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+combat_v1_damage::kRva),
+                        reinterpret_cast<void*>(&combat_v1_damage::modifier),reinterpret_cast<void**>(&combat_v1_damage::original));
+                    if (hook_status==MH_OK) hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+combat_v1_damage::kRva));
+                    if (hook_status==MH_OK) hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+0x27147e0),reinterpret_cast<void*>(&combat_v1_damage::copy_values),reinterpret_cast<void**>(&combat_v1_damage::copy_original));
+                    if (hook_status==MH_OK) hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+0x27147e0));
+                    if (hook_status==MH_OK) hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+0x2709150),reinterpret_cast<void*>(&combat_v1_damage::calculate),reinterpret_cast<void**>(&combat_v1_damage::calculate_original));
+                    if (hook_status==MH_OK) hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+0x2709150));
+                }
+                if (combat_v1_runtime_ready) {
+                    struct Hook { std::uint32_t rva;void* detour;void** original; };
+                    const Hook hooks[]={
+                        {0x23a85f0,reinterpret_cast<void*>(&combat_v1_runtime::end),reinterpret_cast<void**>(&combat_v1_runtime::end_original)},
+                        {0x23a8820,reinterpret_cast<void*>(&combat_v1_runtime::start),reinterpret_cast<void**>(&combat_v1_runtime::start_original)},
+                        {0x24927d0,reinterpret_cast<void*>(&combat_v1_runtime::create),reinterpret_cast<void**>(&combat_v1_runtime::create_original)},
+                        {0x2492a00,reinterpret_cast<void*>(&combat_v1_runtime::transfer),reinterpret_cast<void**>(&combat_v1_runtime::transfer_original)},
+                        {0x2497e00,reinterpret_cast<void*>(&combat_v1_runtime::emit),reinterpret_cast<void**>(&combat_v1_runtime::emit_original)},
+                        {0x23a73e0,reinterpret_cast<void*>(&combat_v1_runtime::phase),reinterpret_cast<void**>(&combat_v1_runtime::phase_original)},
+                    };
+                    for (const auto& hook:hooks) {
+                        if (hook_status==MH_OK) hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+hook.rva),hook.detour,hook.original);
+                        if (hook_status==MH_OK) hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+hook.rva));
+                    }
+                }
+                if (combat_v1_step_ready) {
+                    struct Hook { std::uint32_t rva;void* detour;void** original; };
+                    const Hook hooks[]={
+                        {0x243b190,reinterpret_cast<void*>(&combat_v1_step_native::input),reinterpret_cast<void**>(&combat_v1_step_native::input_original)},
+                        {0x22d1c10,reinterpret_cast<void*>(&combat_v1_step_native::conflict),reinterpret_cast<void**>(&combat_v1_step_native::conflict_original)},
+                        {0x243c240,reinterpret_cast<void*>(&combat_v1_step_native::jump_start),reinterpret_cast<void**>(&combat_v1_step_native::jump_start_original)},
+                        {0x243be20,reinterpret_cast<void*>(&combat_v1_step_native::jump_requests),reinterpret_cast<void**>(&combat_v1_step_native::jump_requests_original)},
+                        {0x26986e0,reinterpret_cast<void*>(&combat_v1_step_native::dodge),reinterpret_cast<void**>(&combat_v1_step_native::dodge_original)},
+                        {0x23abb40,reinterpret_cast<void*>(&combat_v1_step_native::air_limit),reinterpret_cast<void**>(&combat_v1_step_native::air_limit_original)},
+                        {0x23acb30,reinterpret_cast<void*>(&combat_v1_step_native::motion),reinterpret_cast<void**>(&combat_v1_step_native::motion_original)},
+                        {0x236db30,reinterpret_cast<void*>(&combat_v1_step_native::movement),reinterpret_cast<void**>(&combat_v1_step_native::movement_original)},
+                    };
+                    for (const auto& hook:hooks) {
+                        if (hook_status==MH_OK) hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+hook.rva),hook.detour,hook.original);
+                        if (hook_status==MH_OK) hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+hook.rva));
+                    }
+                    combat_v1_runtime::start_before=&combat_v1_step_native::attack_start_pre;
+                    combat_v1_runtime::start_after=&combat_v1_step_native::attack_start_post;
+                }
+                if(combat_v1_wave_ready) {
+                    struct Hook {std::uint32_t rva;void* detour;void** original;};
+                    const Hook hooks[]={
+                        {0x23cb040,reinterpret_cast<void*>(&combat_v1_wave::lua),reinterpret_cast<void**>(&combat_v1_wave::lua_original)},
+                        {0x2463120,reinterpret_cast<void*>(&combat_v1_wave::create),reinterpret_cast<void**>(&combat_v1_wave::create_original)},
+                        {0x2471310,reinterpret_cast<void*>(&combat_v1_wave::pool),reinterpret_cast<void**>(&combat_v1_wave::pool_original)},
+                        {0x24672e0,reinterpret_cast<void*>(&combat_v1_wave::hit),reinterpret_cast<void**>(&combat_v1_wave::hit_original)},
+                        {0x246adb0,reinterpret_cast<void*>(&combat_v1_wave::push),reinterpret_cast<void**>(&combat_v1_wave::push_original)}
+                    };
+                    for(const auto& hook:hooks) {
+                        if(hook_status==MH_OK)hook_status=MH_CreateHook(reinterpret_cast<void*>(game_base+hook.rva),hook.detour,hook.original);
+                        if(hook_status==MH_OK)hook_status=MH_QueueEnableHook(reinterpret_cast<void*>(game_base+hook.rva));
+                    }
+                }
+                combat_v1_runtime::end_after=[](const loadout_actor_resolver::Rows& rows,std::uint16_t result,bool interrupted,void*) {
+                    if (combat_v1_step_native::running()) combat_v1_step_native::attack_end_post(rows,result,interrupted);
+                };
+#endif
                 if (hook_status == MH_OK) hook_status = MH_ApplyQueued();
+#if CRMOD_COMBAT_V1
+                combat_v1_damage::enabled.store(hook_status==MH_OK && combat_v1_ready);
+                combat_v1_runtime::enabled.store(hook_status==MH_OK && combat_v1_runtime_ready);
+                combat_v1_wave::enabled.store(hook_status==MH_OK && combat_v1_wave_ready);
+                combat_v1_step_native::enabled.store(hook_status==MH_OK && combat_v1_step_ready);
+                feature_status::registry().set_state(feature_status::Feature::EnemyStep,
+                    combat_v1_step_native::enabled.load()?feature_status::State::Active:feature_status::State::Disabled,
+                    combat_v1_step_native::enabled.load()?"":"combat v1 native prerequisites unavailable");
+#endif
                 split_form_retention::executable_base=game_base;
                 split_form_retention::stopping=&stopping;
                 split_form_retention::enabled.store(hook_status==MH_OK && split_ready);
