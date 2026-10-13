@@ -1,5 +1,6 @@
 #include "loadout_control.h"
 #include "loadout_queue_audio.h"
+#include "loadout_press_feedback.h"
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -13,9 +14,10 @@ constexpr auto S = Channel::Secondary;
 struct Write { Channel channel; std::uint32_t id; std::uint64_t ticket; };
 struct Native {
     struct Entry { Channel channel; std::uint32_t id; Status status; };
-    std::array<Entry, 5> entries{{
+    std::array<Entry, 7> entries{{
         {P, 10, Status::Available}, {P, 20, Status::Available},
-        {S, 30, Status::Available}, {S, 40, Status::Available}, {P, 0, Status::Available}
+        {S, 30, Status::Available}, {S, 40, Status::Available}, {P, 0, Status::Available},
+        {P, 50, Status::Available}, {S, 60, Status::Available}
     }};
     std::array<std::uint32_t, 2> selected{{10, 30}};
     std::array<Boundary, 2> gates{{Boundary::Legal, Boundary::Legal}};
@@ -172,17 +174,70 @@ static void queue_feedback_regressions() {
     assert(c.request_slot(a,P,0)==Result::Rejected && n.cues.size()==3);
     assert(c.request_slot({},P,0)==Result::Unbound && n.cues.size()==3);
     assert(c.on_menu_event(a,{Action::SelectSlot,P,0,0,99})==Result::Rejected && n.cues.size()==3);
-    constexpr const char* names[]={"Strike","Cleave","Glaive","Crush","Drill","Extend"};
+    constexpr std::uint32_t forms[]={698021297u,1737076817u,3413371114u,3298993364u,444122270u,2860349769u};
     for(unsigned i=0;i<6;++i) {
         const auto channel=i<3?P:S;
-        assert(loadout_queue_audio::cue_index(channel,names[i])==i);
-        assert(loadout_queue_audio::cue_index(i<3?S:P,names[i])==6);
+        assert(loadout_queue_audio::cue_index(channel,forms[i])==i);
+        assert(loadout_queue_audio::cue_index(i<3?S:P,forms[i])==6);
     }
-    assert(loadout_queue_audio::cue_index(P,"Unknown")==6);
-    assert(loadout_queue_audio::cue_index(P,nullptr)==6);
+    assert(loadout_queue_audio::cue_index(P,42)==6);
+    assert(loadout_queue_audio::cue_index(P,0)==6);
+}
+static void all_weapon_cycle_feedback() {
+    constexpr std::uint32_t forms[]={698021297u,1737076817u,3413371114u,3298993364u,444122270u,2860349769u};
+    Native n;
+    for(unsigned i=0;i<6;++i)n.entries[i]={i<3?P:S,forms[i],Status::Available};
+    n.entries[6]={P,0,Status::Available};n.selected={forms[0],forms[3]};
+    auto a=n.adapter();a.queued=&Native::queued;Control c;
+    for(unsigned i=0;i<6;++i)assert(configure(c,a,i<3?P:S,i%3,forms[i])==Result::Configured);
+    unsigned count=0;
+    for(unsigned channel=0;channel<2;++channel)for(unsigned step=0;step<9;++step) {
+        const auto ch=channel?S:P;const unsigned index=channel*3+(step+1)%3;
+        n.gates[channel]=Boundary::Recovery;
+        assert(c.cycle(a,ch)==Result::Queued && n.cues.size()==++count);
+        assert(n.cues.back().id==forms[index] && loadout_queue_audio::cue_index(ch,n.cues.back().id)==index);
+        assert(c.pump(a,ch)==Result::Waiting && n.cues.size()==count);
+        n.gates[channel]=Boundary::Legal;
+        assert(c.pump(a,ch)==Result::Submitted && n.cues.size()==count);
+        complete(c,n,a,n.writes.back());
+        assert(c.pump(a,ch)==Result::NoChange && n.cues.size()==count);
+    }
+    assert(n.cues.size()==18);
+}
+static void physical_press_feedback() {
+    using namespace loadout_press_feedback;
+    Edges edges;std::array<std::uint64_t,5> scope{1,2,3,4,5};
+    assert((edges.update(scope,{false,false})==std::array<bool,2>{false,false}));
+    // Keyboard primary tap, held polls and release.
+    assert((edges.update(scope,{true,false})==std::array<bool,2>{true,false}));
+    assert((edges.update(scope,{true,false})==std::array<bool,2>{false,false}));
+    assert((edges.update(scope,{false,false})==std::array<bool,2>{false,false}));
+    // Controller secondary tap uses the same physical edge path.
+    assert((edges.update(scope,{false,true})==std::array<bool,2>{false,true}));
+    edges.update(scope,{false,false});
+    // Catalogue epoch is intentionally absent: changing weapon cannot suppress a new tap.
+    assert((edges.update(scope,{true,true})==std::array<bool,2>{true,true}));
+    edges.reset();assert((edges.update(scope,{true,true})==std::array<bool,2>{false,false}));
+    edges.update(scope,{false,false});scope[4]++;
+    assert((edges.update(scope,{true,false})==std::array<bool,2>{false,false})); // Rebinding is a baseline.
+    Native n;auto a=n.adapter();Control c;
+    assert(configure(c,a,P,0,10)==Result::Configured);
+    // Even a one-slot/no-change press has a known sound; no queued outcome is required.
+    assert(c.preview_cycle(a,P).choice.id==10 && c.preview_cycle(a,P).no_change);
+    assert(c.cycle(a,P)==Result::NoChange);
+    assert(configure(c,a,P,1,20)==Result::Configured && configure(c,a,P,2,50)==Result::Configured);
+    assert(c.preview_cycle(a,P,1).choice.id==20);
+    assert(c.preview_cycle(a,P,2).choice.id==50);
+    assert(c.preview_cycle(a,P,3).choice.id==10);
+    assert(c.preview_cycle(a,P,4).choice.id==20); // Unconsumed rapid presses advance the preview.
+    assert(c.desired_choice(a,P).assigned==false && n.writes.empty()); // Preview never changes native selection.
+    auto readonly=a;readonly.world_epoch=0;readonly.submit=nullptr;readonly.terminal=nullptr;
+    assert(c.preview_cycle(readonly,P).choice.id==20 && c.cycle(readonly,P)==Result::Unbound);
 }
 int main() {
+    physical_press_feedback();
     queue_feedback_regressions();
+    all_weapon_cycle_feedback();
     {
         Native n;auto a=n.adapter();Control first;
         assert(configure(first,a,P,0,20)==Result::Configured);

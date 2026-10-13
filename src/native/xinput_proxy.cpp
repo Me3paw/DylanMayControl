@@ -101,15 +101,58 @@ static void (*pass_test_barrier)() = nullptr;
     ReleaseSRWLockExclusive(&input_lock);
     return accepted;
 }
+static std::uint32_t preview_cycle_sound(const loadout_key_requests::Context& pressed,loadout_control::Channel channel) {
+    const unsigned which=static_cast<unsigned>(channel);if(which>=2)return 0;
+    // A press may wait briefly for the native owner's snapshot; this never runs on idle polls.
+    AcquireSRWLockShared(&loadout_player_catalogue::state_lock);
+    const auto& p=loadout_player_catalogue::published;std::uint32_t form=0;
+    if(loadout_player_catalogue::active() && p.catalogue.valid && p.menu.configuration_bound &&
+       p.view_generation==native_ui::sdk::generation.load() && p.view_generation==pressed.view_generation &&
+       p.catalogue.world==pressed.world && p.catalogue.actor==pressed.actor && p.catalogue.graph_key==pressed.graph) {
+        const loadout_key_requests::Context current{p.catalogue.world,p.catalogue.actor,p.catalogue.graph_key,p.menu.world_epoch,p.view_generation};
+        AcquireSRWLockShared(&loadout_key_requests::lock);unsigned presses=1;
+        for(unsigned i=0;i<loadout_key_requests::count;++i) {
+            const auto& r=loadout_key_requests::requests[(loadout_key_requests::head+i)%loadout_key_requests::requests.size()];
+            if(r.channel==channel && r.focus==loadout_key_requests::focus_generation.load() && loadout_key_requests::same(r.context,current))++presses;
+        }
+        loadout_control::Adapter preview{};preview.catalogue_epoch=current.catalogue_epoch;
+        preview.owner_scope_current=true;preview.context=const_cast<loadout_player_catalogue::Catalogue*>(&p.catalogue);
+        preview.validate=&loadout_player_catalogue::validate;
+        form=loadout_player_catalogue::control.preview_cycle(preview,channel,presses).choice.id;
+#if CRMOD_AUDIO_TRACE
+        const auto slots=loadout_player_catalogue::control.menu(preview,nullptr,0).channels[which].slots;
+        loadout_audio_trace::row("audio_preview",",\"channel\":%u,\"presses\":%u,\"form\":%u,\"ids\":[%u,%u,%u],\"status\":[%u,%u,%u],\"selected\":[%u,%u,%u]",which,presses,form,
+            slots[0].slot.id,slots[1].slot.id,slots[2].slot.id,
+            static_cast<unsigned>(slots[0].validation.status),static_cast<unsigned>(slots[1].validation.status),static_cast<unsigned>(slots[2].validation.status),
+            slots[0].validation.selected?1u:0u,slots[1].validation.selected?1u:0u,slots[2].validation.selected?1u:0u);
+#endif
+        ReleaseSRWLockShared(&loadout_key_requests::lock);
+    } else {
+        loadout_audio_trace::row("audio_preview_rejected",",\"channel\":%u,\"active\":%u,\"valid\":%u,\"configuration_bound\":%u,\"view_matches\":%u,\"owner_matches\":%u",which,
+            loadout_player_catalogue::active()?1u:0u,p.catalogue.valid?1u:0u,p.menu.configuration_bound?1u:0u,
+            p.view_generation==native_ui::sdk::generation.load() && p.view_generation==pressed.view_generation?1u:0u,
+            p.catalogue.world==pressed.world && p.catalogue.actor==pressed.actor && p.catalogue.graph_key==pressed.graph?1u:0u);
+    }
+    ReleaseSRWLockShared(&loadout_player_catalogue::state_lock);return form;
+}
 static void sample_loadout_cycle_keys(FILE* log) {
+    loadout_audio_trace::begin_sample();
     loadout_key_requests::Context context{}; bool available=false;
+    unsigned snapshot_reason=loadout_player_catalogue::active()?1:0;
     if (loadout_player_catalogue::active() && TryAcquireSRWLockShared(&loadout_player_catalogue::state_lock)) {
         const auto& p=loadout_player_catalogue::published;
         available=p.catalogue.valid && p.menu.configuration_bound && p.view_generation==native_ui::sdk::generation.load();
         if (available) context={p.catalogue.world,p.catalogue.actor,p.catalogue.graph_key,p.menu.world_epoch,p.view_generation};
+        snapshot_reason=!p.catalogue.valid?2:!p.menu.configuration_bound?3:p.view_generation!=native_ui::sdk::generation.load()?4:5;
         ReleaseSRWLockShared(&loadout_player_catalogue::state_lock);
     }
-    loadout_key_requests::sample(context,available,backend);
+    if constexpr(CRMOD_AUDIO_TRACE) {
+        static unsigned previous=UINT_MAX;
+        if(previous!=snapshot_reason) {
+            loadout_audio_trace::row("audio_snapshot",",\"reason\":%u,\"previous_reason\":%u",snapshot_reason,previous);previous=snapshot_reason;
+        }
+    }
+    loadout_key_requests::sample(context,available,backend,&preview_cycle_sound);
 #if CRMOD_DIAGNOSTICS
     const unsigned state=(available?1:0)|(mod_bindings::panel_open.load()?2:0)|(mod_bindings::menu_owned.load()?4:0)|(mod_bindings::capturing.load()?8:0);
     static unsigned previous=UINT_MAX,records=0;
@@ -379,14 +422,20 @@ end:
 #else
 static DWORD WINAPI service(void* reference) {
     mod_bindings::start();
+    loadout_audio_trace::start();
+    loadout_queue_audio::configure_self_check();
     selection_observer::start(nullptr,stopping,true,backend);
     while(!stopping.load()) {
         if(loadout_selection_bridge::enabled.load())loadout_queue_audio::prepare(self_module,stopping);
+        loadout_queue_audio::run_self_check();
         sample_loadout_cycle_keys(nullptr);
+        loadout_queue_audio::probe_progress();
+        loadout_audio_trace::flush();
         Sleep(10);
     }
     mod_bindings::persist(true);
     stop_services();
+    loadout_audio_trace::stop();
     neutral();
     FreeLibraryAndExitThread(static_cast<HMODULE>(reference),0);
 }

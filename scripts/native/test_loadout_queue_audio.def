@@ -4,3 +4,5 @@ EXPORTS
 "?PostEvent@SoundEngine@AK@@YAII_KIP6AXW4AkCallbackType@@PEAUAkCallbackInfo@@@ZPEAXIPEAUAkExternalSourceInfo@@I@Z"=test_audio_post
 "?ExecuteActionOnEvent@SoundEngine@AK@@YA?AW4AKRESULT@@IW4AkActionOnEventType@12@_KHW4AkCurveInterpolation@@I@Z"=test_audio_execute
 "?UnloadBank@SoundEngine@AK@@YA?AW4AKRESULT@@IPEBXI@Z"=test_audio_unload
+"?GetSourcePlayPosition@SoundEngine@AK@@YA?AW4AKRESULT@@IPEAH_N@Z"=test_audio_position
+"?GetEventIDFromPlayingID@Query@SoundEngine@AK@@YAII@Z"=test_audio_playing_event

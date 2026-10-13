@@ -1,34 +1,32 @@
-# DylanMayControl v1.1.1
+# DylanMayControl v1.1.1-fix
 
-DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant.
+Directional-input combat and weapon swapping for CONTROL Resonant. This release includes both **f2g** and **native Original DLL** builds from the same source, with general and focused audio logging compiled out.
 
-Current route: **f2g plugin (recommended Main download)**. Both variants use identical shared native/UI source. Choose one route; never load both copies of this mod.
+## Install one route
 
-## Compatibility and installation
+Supported CONTROLResonant.exe: FileVersion0.564.629.5, ProductVersion26.1.29.0, SHA256`9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1`. Other versions may be refused by the compatibility guards.
 
-Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.1.1 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
+Close the game and preserve saves, bindings, configuration and other mods before replacing a DLL.
 
-- Optional native Original DLL: Nexus separately lists native v1.1.0; this f2g release does not update that file. The preserved GitHub native source tag `original-dll-v1.0.3` is historical source only. Native installs root xinput1_4.dll and does not require f2g. On Proton use `xinput1_4=n,b` in your game's DLL overrides.
-- Main/default f2g: extract `DylanMayControl-1.1.1.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
+- **f2g:** extract `DylanMayControl-1.1.1-fix-f2g.zip` into the game folder. Its only file is `crmods/CombatLoadout/combatloadout.dll`. Requires the separately installed [f2g DLL Mod Loader1.0.0](https://www.nexusmods.com/controlresonant/mods/9). On Proton, use `winmm=n,b` alongside your existing overrides.
+- **Native Original DLL:** extract `DylanMayControl-1.1.1-fix-OriginalDLL.zip` into the game folder. Its only file is root `xinput1_4.dll`. On Proton, use `xinput1_4=n,b` alongside your existing overrides.
 
-Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, saves and unrelated mods. When switching routes, back up/remove only the other DylanMayControl DLL; f2g may remain for unrelated plugins. Merge overrides with existing launcher settings. Follow INSTALLATION.txt and USER_GUIDE.txt in the release archive.
+Never load the native DylanMayControl DLL and its f2g CombatLoadout plugin together. Other f2g plugins may remain when using the native route; disable only the other copy of this mod. No loader, settings, source or tests are bundled in either install ZIP.
 
-## Features and verification
+## Audio repair
 
-Three primary/secondary slots, custom cycle bindings, queued native weapon handoffs with selected native audio cues on accepted requests, held lock and target-relative finisher commands, sustained charged Uppercut targeting, one owned Split Pivot/Orbit each, and adjustable resource loot. Native movement, attack pace, cancels, acquisition and per-weapon upgrades remain enforced. See CHANGELOG.md and BUILDING.md.
+Fixes cue startup by using the game's24-byte Wwise PCM media header instead of ordinary WAV headers. Each fresh configured keyboard/controller swap press posts a separate cue; earlier cues can overlap and finish. Chosen samples remain audition01 for Strike/Cleave/Crush/Drill/Extend and audition02 for Glaive, with the approved quiet lead-ins trimmed. Native SFX/master volume routing is retained.
 
-The f2g 1.1.1 plugin passed strict Win64 build/export checks and an isolated 15-second Linux/Proton startup with successful native bank loading. Queue ordering, PCM assets, native resource/API handling and delayed Init bank retry were checked with focused tests. Audible gameplay and SFX-volume acceptance remain human pending; no performance gain is claimed. The separate Nexus native v1.1.0 file and its history remain unchanged.
+The cue path does not write VFX state, call global audio stops, or change native switches/RTPCs. It retains the working shared global audio object and Player/Game/Master buses; native audio policies and voice budgets can still affect the overlay. Existing native selection/handoff flow, combat tuning, fixed80cm Enemy Step, controls and menu are retained.
 
-Production diagnostic logging is compiled out in both routes. The functionality/performance source and binary audit found no blocking issue or new steady-state regression in reviewed paths. This is not a controlled current-build FPS or 1% low measurement.
+The author confirmed the corrected cue behavior works in gameplay. The traced development build demonstrated six simultaneous advancing native sources and repeated-cue overlap; this release removes the diagnostics. Strict builds, export/resource/native-format tests and isolated input-free Proton startup checks validate the artifacts. Startup is not a controlled VFX regression or performance test; native Windows and separate native gameplay acceptance are not claimed.
 
-## Source and release
+## Source and builds
 
-- [Historical native Original DLL source v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/original-dll-v1.0.3)
-- [f2g v1.1.1](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.1.1)
-- [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181)
+[Release/source tag](https://github.com/Me3paw/DylanMayControl/tree/v1.1.1-fix). See [BUILDING.md](BUILDING.md) and [CHANGELOG.md](CHANGELOG.md). Old tags/releases remain preserved. Nexus publication is handled separately by the author.
 
-Plugin DLL SHA256: `21fcfa63f96ee83676d8b6f52f2a84b177ba58210530bbb6a1c1096259de5fa5`. Install ZIP SHA256: `e09130117807ed0c5ddfb27db974daa78369a8038a9c5897206750da83ec75ee`. The DLL-only install ZIP contains exactly `crmods/CombatLoadout/combatloadout.dll`; source and development files are published separately. Older tags and Nexus files retain prior-build releases.
+Both logging flags default to0: `CRMOD_DIAGNOSTICS=0`, `CRMOD_AUDIO_TRACE=0`. The installed release does not create cue trace logs or run the diagnostic startup cue test. Diagnostic source remains available behind explicit build flags.
 
 ## License and credits
 
-Original code/docs are MIT licensed, including commercial reuse with attribution and retained notices; see LICENSE and CREDITS.md. **src/ui/weapon_icons.js, src/audio/weapon_cues, embedded Remedy icons and audio, other game imagery and gameplay screenshots are excluded from the MIT grant.** MinHook/HDE retain the BSD notice in third_party/minhook/LICENSE.txt. No game binaries, saves, logs, personal settings, fetched tools or compilers are included. This is unofficial fan work, not approved or endorsed by Remedy Entertainment Plc or its affiliates.
+Original code/docs are MIT licensed; see LICENSE and CREDITS.md. **Game-owned icons, audio and other Remedy assets, including src/ui/weapon_icons.js and src/audio/weapon_cues, are excluded from the MIT grant.** MinHook/HDE retain their BSD notices in third_party/minhook/LICENSE.txt. Development is AI Assisted; no AI-generated media is included. This is unofficial fan work, not endorsed by Remedy Entertainment Plc or its affiliates.

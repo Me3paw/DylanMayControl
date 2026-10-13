@@ -57,6 +57,7 @@ struct Adapter {
 };
 struct Slot { bool assigned = false; std::uint32_t id = 0; };
 struct DesiredChoice { bool assigned = false; unsigned slot = 0; std::uint32_t id = 0; };
+struct CyclePreview { DesiredChoice choice{}; bool no_change = false; };
 struct MenuEvent {
     Action action = Action::SelectSlot;
     Channel channel = Channel::Primary;
@@ -182,12 +183,13 @@ public:
         return on_menu_event(adapter,
             {Action::SelectSlot, channel, slot, 0, adapter.catalogue_epoch});
     }
-    Result cycle(const Adapter& adapter,Channel channel) {
-        if (!adapter.channel_bound(channel)) return Result::Unbound;
-        synchronize(adapter);
-        if (!valid(channel)) return Result::Rejected;
-        const unsigned c=index(channel); unsigned anchor=kSlotCount;
-        const auto& desired=states_[c].desired;
+    CyclePreview preview_cycle(const Adapter& adapter,Channel channel,unsigned presses=1) const {
+        if(!adapter.configuration_bound() || !valid(channel) || !presses || presses>17)return {};
+        const unsigned c=index(channel);
+        auto desired=states_[c].desired;CyclePreview result{};
+        for(unsigned press=0;press<presses;++press) {
+        result={};
+        unsigned anchor=kSlotCount;
         if (desired.assigned && desired.slot<kSlotCount && slots_[c][desired.slot].assigned &&
             slots_[c][desired.slot].id==desired.id) anchor=desired.slot;
         if (anchor==kSlotCount) {
@@ -203,10 +205,21 @@ public:
             if (!slot.assigned) continue;
             const auto checked=adapter.validate(adapter.context,channel,slot.id);
             if (checked.status!=Status::Available) continue;
-            if (anchor<kSlotCount && next==anchor && checked.selected) return Result::NoChange;
-            return request_slot(adapter,channel,next);
+            result={{true,next,slot.id},anchor<kSlotCount && next==anchor && checked.selected};
+            break;
         }
-        return Result::Rejected;
+        if(!result.choice.assigned)return {};
+        desired=result.choice;
+        }
+        return result;
+    }
+    Result cycle(const Adapter& adapter,Channel channel) {
+        if (!adapter.channel_bound(channel)) return Result::Unbound;
+        synchronize(adapter);
+        const auto next=preview_cycle(adapter,channel);
+        if(!next.choice.assigned)return Result::Rejected;
+        if(next.no_change)return Result::NoChange;
+        return request_slot(adapter,channel,next.choice.slot);
     }
     DesiredChoice desired_choice(const Adapter& adapter,Channel channel) const {
         if (!adapter.configuration_bound() || !valid(channel)) return {};

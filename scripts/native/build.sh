@@ -4,18 +4,22 @@ ROOT=$(cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$ROOT"
 plugin=false
 diagnostics=0
+audio_trace=0
 combat_v1=0
 for flag in "$@"; do
     case "$flag" in
         --plugin) plugin=true ;;
         --diagnostics) diagnostics=1 ;;
+        --audio-trace) audio_trace=1 ;;
         --combat-v1) combat_v1=1 ;;
-        *) echo 'Usage: build.sh [--plugin] [--diagnostics] [--combat-v1]' >&2; exit 2 ;;
+        *) echo 'Usage: build.sh [--plugin] [--diagnostics] [--audio-trace] [--combat-v1]' >&2; exit 2 ;;
     esac
 done
+if ((diagnostics && audio_trace));then echo "Audio trace requires general diagnostics off." >&2;exit 2;fi
 mode=optimized
 if ((diagnostics));then mode=diagnostic;fi
 if ((combat_v1));then mode="combat-v1-$mode";fi
+if ((audio_trace));then mode="$mode-audio-trace";fi
 build_dir=".work/native-build/$mode"
 mkdir -p "$build_dir"
 for tool in git g++ node python3 x86_64-w64-mingw32-windres x86_64-w64-mingw32-clang x86_64-w64-mingw32-clang++; do
@@ -55,7 +59,7 @@ for unit in buffer hook trampoline hde/hde64; do
 done
 definition=src/native/xinput_proxy.def
 output="$build_dir/xinput1_4.dll"
-defines=(-DCRMOD_DIAGNOSTICS="$diagnostics" -DCRMOD_COMBAT_V1="$combat_v1" -I"$build_dir")
+defines=(-DCRMOD_DIAGNOSTICS="$diagnostics" -DCRMOD_AUDIO_TRACE="$audio_trace" -DCRMOD_COMBAT_V1="$combat_v1" -I"$build_dir")
 if "$plugin"; then
     definition=src/native/plugin.def
     output="$build_dir/combatloadout.dll"

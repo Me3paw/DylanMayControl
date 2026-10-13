@@ -1,4 +1,4 @@
-DylanMayControl v1.1.1
+DylanMayControl v1.1.1-fix
 Author / release account: myqueenformdeath
 
 Inspired by Devil May Cry's directional-input combat and weapon swapping. No Devil May Cry assets are included.
@@ -7,11 +7,11 @@ CONTROL Resonant, its weapon icons and gameplay imagery belong to Remedy Enterta
 
 This is unofficial fan work not approved or endorsed by Remedy Entertainment Plc or its affiliates.
 
-MinHook: Tsuda Kageyu, with HDE credits to Vyacheslav Patkov. BSD notices are included in MINHOOK-LICENSE.txt and continue to apply.
+MinHook: Tsuda Kageyu, with HDE credits to Vyacheslav Patkov. BSD notices are included in third_party/minhook/LICENSE.txt and continue to apply.
 
-Research/tool references: f2g loader by fame2gin; Mod Settings Menu by kkyleeb21; SonOfSaris/GravityControl; GrzybDev/NorthlightTools; Resonant Mod Tool; CRLooseFiles by Jaumns. These references were used for investigation. Their first-party implementations and downloaded binaries are not redistributed in this package. The f2g loader is required only by the separate Main/f2g route; this Original DLL archive does not require it.
+Research/tool references: f2g loader by fame2gin; Mod Settings Menu by kkyleeb21; SonOfSaris/GravityControl; GrzybDev/NorthlightTools; Resonant Mod Tool; CRLooseFiles by Jaumns. These references were used for investigation. Their first-party implementations and downloaded binaries are not redistributed in this package. The f2g archive requires the separate loader; the native Original DLL archive does not.
 
-Development was AI Assisted by OpenAI Codex and Anthropic Claude, under the author's direction. No AI-generated media or assets are included. Audible gameplay acceptance remains human pending.
+Development was AI Assisted by OpenAI Codex and Anthropic Claude, under the author's direction. No AI-generated media or assets are included. The author confirms the cue repair works in f2g gameplay; separate native gameplay acceptance remains unverified.
 
 Permissions: original author code and documentation are MIT-licensed. You may use, copy, modify, distribute and sell covered code while retaining the MIT notice; see LICENSE. This permission excludes Remedy's game icons and audio, including src/ui/weapon_icons.js and src/audio/weapon_cues; their rights remain with Remedy and the applicable fan-content rules. MinHook and HDE retain their included BSD notices. The compiled mod includes game icons and audio, so the original-code license is not a grant to sell or separately reuse those assets.
 

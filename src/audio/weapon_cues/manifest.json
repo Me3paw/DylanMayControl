@@ -4,44 +4,64 @@
     "choice": 1,
     "file": "Strike/Strike-01-flurry_attack1.wav",
     "event": "flurry_attack1",
-    "duration": 1.0667708333333332,
+    "duration": 1.0235833333333333,
     "source_txtp": "play_aberrant_flurry_attack1 (3298166895=1651971902) {s}=(4134116596=1014453118) {r}.txtp",
-    "sha256": "0e7a9ccec16bdb4af57748b65af50f9ff0cc3a306de2032186e5fcb49490cd74",
+    "sha256": "eacf5dfc652f38e149ab7bf19f558a5067817e99df7549fa21a79485303a11df",
     "peak": 14631,
-    "asset": "strike.wav"
+    "asset": "strike.wav",
+    "original_sha256": "0e7a9ccec16bdb4af57748b65af50f9ff0cc3a306de2032186e5fcb49490cd74",
+    "lead_in_trim_frames": 2073,
+    "lead_in_trim_ms": 43.1875,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   },
   {
     "weapon": "Cleave",
     "choice": 1,
     "file": "Cleave/Cleave-01-slice_combo_01.wav",
     "event": "slice_combo_01",
-    "duration": 0.9349166666666666,
+    "duration": 0.9224583333333334,
     "source_txtp": "play_aberrant_slice_combo_01 (3298166895=1651971902) {r}.txtp",
-    "sha256": "8aa40f3422029522404fc54c41ca3ce6efc622d925e4179d09815d6168d3d45a",
+    "sha256": "3a8db3bf6b14b2312b11dc919cd35a67dce2cfb88538b6aaeeffdbbf6490570d",
     "peak": 11704,
-    "asset": "cleave.wav"
+    "asset": "cleave.wav",
+    "original_sha256": "8aa40f3422029522404fc54c41ca3ce6efc622d925e4179d09815d6168d3d45a",
+    "lead_in_trim_frames": 598,
+    "lead_in_trim_ms": 12.458333333333334,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   },
   {
     "weapon": "Glaive",
     "choice": 2,
     "file": "Glaive/Glaive-02-slash_combo_01.wav",
     "event": "slash_combo_01",
-    "duration": 1.1,
+    "duration": 1.08875,
     "source_txtp": "play_aberrant_slash_combo_01 (3298166895=748895195) {r}.txtp",
-    "sha256": "f8ce1efb107abe385f4f2f02d51d643c31e0b4f71651d55d88c78bad44caf3bb",
+    "sha256": "6c7e0e215419168bd7eb5e33ed3b2004e6847156ade0986bb11f9af6177419bc",
     "peak": 8610,
-    "asset": "glaive.wav"
+    "asset": "glaive.wav",
+    "original_sha256": "f8ce1efb107abe385f4f2f02d51d643c31e0b4f71651d55d88c78bad44caf3bb",
+    "lead_in_trim_frames": 540,
+    "lead_in_trim_ms": 11.25,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   },
   {
     "weapon": "Crush",
     "choice": 1,
     "file": "Crush/Crush-01-crush_switch_whoosh.wav",
     "event": "crush_switch_whoosh",
-    "duration": 1.0495208333333332,
+    "duration": 0.7986458333333334,
     "source_txtp": "play_aberrant_crush_switch_whoosh [652281377=1072972400] (4267341601=1651971902) {r}.txtp",
-    "sha256": "22471610e293ecd1c3270d57c0b621a2dd7efd2a700b7d188fb4fb748137b4e6",
+    "sha256": "a31616a967b18ce1825a38f873e2635e948cbfc21c79d72a261f0d45fd317953",
     "peak": 22477,
-    "asset": "crush.wav"
+    "asset": "crush.wav",
+    "original_sha256": "22471610e293ecd1c3270d57c0b621a2dd7efd2a700b7d188fb4fb748137b4e6",
+    "lead_in_trim_frames": 12042,
+    "lead_in_trim_ms": 250.875,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   },
   {
     "weapon": "Drill",
@@ -52,17 +72,27 @@
     "source_txtp": "play_aberrant_drill_switch (3298166895=1651971902) {r}.txtp",
     "sha256": "ab0f3e211538b4c307ae67234a0325bd6dd36768b2ab23f03f14303fdae7ee15",
     "peak": 8464,
-    "asset": "drill.wav"
+    "asset": "drill.wav",
+    "original_sha256": "ab0f3e211538b4c307ae67234a0325bd6dd36768b2ab23f03f14303fdae7ee15",
+    "lead_in_trim_frames": 0,
+    "lead_in_trim_ms": 0.0,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   },
   {
     "weapon": "Extend",
     "choice": 1,
     "file": "Extend/Extend-01-extend_attack_switch.wav",
     "event": "extend_attack_switch",
-    "duration": 1.2805,
+    "duration": 1.27275,
     "source_txtp": "play_aberrant_extend_attack_switch (3298166895=1651971902) [595380414=1655200910] {s}=(4134116596=1014453118) {r}.txtp",
-    "sha256": "7c08e7e1e1c2f92253f62b19243614213d76a496a9262806faeb65417aaf8598",
+    "sha256": "8cbf220be2d3af67fb5a5759ca3a72c8c20b40118f5615457ba8f5bca3cfb83c",
     "peak": 10920,
-    "asset": "extend.wav"
+    "asset": "extend.wav",
+    "original_sha256": "7c08e7e1e1c2f92253f62b19243614213d76a496a9262806faeb65417aaf8598",
+    "lead_in_trim_frames": 372,
+    "lead_in_trim_ms": 7.75,
+    "trim_threshold_pcm16": 328,
+    "trim_preroll_ms": 2
   }
 ]

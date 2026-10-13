@@ -22,6 +22,21 @@ def object_record(kind, data):
     return bytes([kind]) + struct.pack('<I', len(data)) + data
 
 
+def native_pcm_media(path):
+    with wave.open(str(path), 'rb') as wav:
+        channels, rate = wav.getnchannels(), wav.getframerate()
+        assert wav.getsampwidth() == 2 and channels in (1, 2)
+        assert rate == 48000 and 0 < wav.getnframes() <= 96000
+        pcm = wav.readframes(wav.getnframes())
+    # The pinned decoder reads channel configuration at fmt+20 even for PCM.
+    # Match the game's 24-byte Wwise fmt; a normal 16-byte WAV fmt is incompatible.
+    config = 0x4101 if channels == 1 else 0x3102
+    fmt = struct.pack('<HHIIHHHHI', 0xfffe, channels, rate,
+                      rate * channels * 2, channels * 2, 16, 6, 0, config)
+    body = b'WAVE' + chunk(b'fmt ', fmt) + chunk(b'data', pcm)
+    return b'RIFF' + struct.pack('<I', len(body)) + body
+
+
 def build(output):
     lab = Path(__file__).resolve().parents[2]
     assets = lab / 'src/audio/weapon_cues'
@@ -33,22 +48,21 @@ def build(output):
     records, media, didx, event_ids = [], bytearray(), bytearray(), []
     all_ids = {bank_id}
     for row in rows:
-        data = (assets / row['asset']).read_bytes()
-        assert hashlib.sha256(data).hexdigest() == row['sha256']
-        with wave.open(str(assets / row['asset'])) as wav:
-            assert wav.getsampwidth() == 2 and wav.getnchannels() in (1, 2)
-            assert wav.getframerate() == 48000 and 0 < wav.getnframes() <= 96000
+        path = assets / row['asset']
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == row['sha256']
+        data = native_pcm_media(path)
         prefix = 'crmod_queue_' + row['weapon'].lower()
-        sound, action, event, source = [fnv(prefix + suffix) for suffix in ('_sound', '_action', '', '_media')]
-        ids = {sound, action, event, source}
-        assert len(ids) == 4 and not (all_ids & ids)
+        sound, action, event, source, cache = [fnv(prefix + suffix) for suffix in ('_sound', '_action', '', '_media', '_cache')]
+        ids = {sound, action, event, source, cache}
+        assert len(ids) == 5 and not (all_ids & ids) and cache
         all_ids.update(ids)
         event_ids.append(event)
         media.extend(bytes((-len(media)) % 16))
         didx.extend(struct.pack('<III', source, len(media), len(data)))
         media.extend(data)
         # Sound ID, PCM codec, in-bank source, source/cache IDs, size, has-source.
-        payload = struct.pack('<IIBIIIB', sound, 0x00010001, 0, source, 0, len(data), 0x80)
+        # Give each clip a distinct v154 media-cache identity, matching stock banks.
+        payload = struct.pack('<IIBIIIB', sound, 0x00010001, 0, source, cache, len(data), 0x80)
         payload += bytes(4)  # no local FX or metadata
         payload += struct.pack('<II', bus, 0)  # own output bus; no stock parent
         payload += bytes(3)  # priority defaults, no properties or random ranges

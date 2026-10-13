@@ -1,3 +1,12 @@
+# DylanMayControl v1.1.1-fix
+
+- Fixes failed weapon cue playback: native PCM tag0xFFFE,24-byte fmt and stock channel configurations replace incompatible ordinary WAV headers.
+- Plays cues on fresh keyboard/controller swap presses, independently of native queue/handoff outcomes. New cues do not interrupt earlier ones.
+- Uses the approved quiet-intro trims; retained PCM samples and volume are unchanged.
+- Compiles general and focused cue logging out of both release DLLs. No automatic startup audio test runs in these binaries.
+- Publishes both f2g and native Original DLL-only install ZIPs. Existing combat, native VFX/selection flow, controls and UI remain.
+- Native decoder-format analysis, resource/ABI/error/lifecycle tests, strict builds and startup checks passed. Author confirms repaired audio works; native gameplay, controlled VFX noninterference and performance measurements remain unverified.
+
 # DylanMayControl v1.1.1
 
 - Adds selected native game-audio cues when a primary or secondary weapon switch is accepted into the queue, including during recovery. Cues never replay at handoff; rejected and no-op requests remain silent.

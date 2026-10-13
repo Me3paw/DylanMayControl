@@ -1,25 +1,33 @@
-# Build DylanMayControl v1.1.1
+# Build DylanMayControl v1.1.1-fix
 
-Requirements: host C++20 g++, Node.js, Python 3, Git and LLVM-MinGW x86_64-w64-mingw32-clang/clang++ on PATH. Optional real-binary pin validation requires Python pefile. The build fetches MinHook commit 8af6b4acae5a9388fd742b56fa79ece89d96f823; its BSD notice is included.
+Requirements: C++20 g++, Node.js, Python3 with pefile, Git, and LLVM-MinGW x86_64-w64-mingw32-clang/clang++/windres on PATH. The portable builder fetches pinned MinHook commit8af6b4acae5a9388fd742b56fa79ece89d96f823; its BSD notice is retained.
 
-From the repository root:
+From the checkout root:
 
 ```sh
 bash scripts/native/build.sh --plugin --combat-v1
 bash scripts/native/build.sh --combat-v1
 ```
 
-The first command builds the recommended `.work/native-build/combat-v1-optimized/combatloadout.dll` (f2g); the second builds a native Original DLL from shared development source. Both compile production diagnostics out. The script generates the Wwise PCM bank and UI assets under ignored `.work/` and never installs or launches the game. Compiler/toolchain differences can change rebuilt DLL bytes. The second output is not the separately published Nexus native release; this 1.1.1 publication updates the f2g route only.
+Outputs are `.work/native-build/combat-v1-optimized/combatloadout.dll` and `xinput1_4.dll`. Both commands compile general and cue diagnostics out. They generate the native PCM bank/UI assets locally and never install or launch a game. Link timestamps/build IDs can change rebuilt DLL hashes; release manifests identify the tested binaries.
 
-Focused layout regression:
+Focused source checks:
 
 ```sh
+python3 scripts/native/test_weapon_cue_media.py
 mkdir -p .work/native-build
-g++ -std=c++20 -O2 -Wall -Wextra -Werror -Isrc/native scripts/native/test_loadout_current_node.cpp -o .work/native-build/test_loadout_current_node
-.work/native-build/test_loadout_current_node
-python3 scripts/native/test_game_pins.py /path/to/your/CONTROLResonant.exe
+g++ -std=c++20 -O2 -Wall -Wextra -Werror -Isrc/native scripts/native/test_loadout_control.cpp -o .work/native-build/test_loadout_control
+.work/native-build/test_loadout_control
 ```
 
-The exact executable pin test reads your own game binary and never runs it. The supplemental PhysX fixture requires `-municode` and a path to your own compatible PhysXCommon_64.dll. Fixtures do not prove rendering performance or full gameplay.
+Windows native-audio helper:
 
-SOURCE-SHA256SUMS.txt covers code/test/UI/audio source. Game-owned icons in src/ui/weapon_icons.js and the Remedy audio samples in src/audio/weapon_cues are excluded from the MIT grant. No game executable or runtime engine DLL is included.
+```sh
+x86_64-w64-mingw32-clang++ -std=c++20 -O2 -Wall -Wextra -Werror -DCRMOD_AUDIO_TRACE=0 -static scripts/native/test_loadout_queue_audio.cpp scripts/native/test_loadout_queue_audio.def .work/native-build/combat-v1-optimized/weapon_cues.o -o .work/native-build/test_loadout_queue_audio.exe
+```
+
+This helper uses audio API test doubles and is not a live-game sound/VFX/performance test. Execute it only in your own test environment.
+
+Optional `--audio-trace` enables bounded private cue diagnostics. Do not combine it with `--diagnostics`. These options are off in both published binaries. The optional six-cue startup self-check requires an explicitly enabled traced build and process-local environment flag; release builds compile it out.
+
+SOURCE-SHA256SUMS.txt covers source/tests/UI/audio. Game-owned icons/audio are excluded from MIT. No game executable, runtime engine DLL, saves, diagnostic recordings or compilers are published.

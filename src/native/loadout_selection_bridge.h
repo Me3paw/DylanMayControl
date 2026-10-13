@@ -216,13 +216,6 @@ inline loadout_control::Adapter make_adapter(loadout_player_catalogue::Catalogue
         adapter.world_epoch=lifetime; // Mod identity token, never a simulation frame.
         adapter.selection_channels=3;
         adapter.boundary=&boundary; adapter.submit=&submit; adapter.terminal=&terminal;
-        adapter.queued=[](void* context,loadout_control::Channel channel,std::uint32_t id) {
-            const auto& catalogue=*static_cast<const loadout_player_catalogue::Catalogue*>(context);
-            for(std::size_t i=0;i<catalogue.count;++i)if(catalogue.items[i].id==id) {
-                loadout_queue_audio::play(loadout_queue_audio::cue_index(channel,catalogue.items[i].name));
-                return;
-            }
-        };
     }
     return adapter;
 }
