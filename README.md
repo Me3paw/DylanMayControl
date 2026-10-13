@@ -1,4 +1,4 @@
-# DylanMayControl v1.0.4
+# DylanMayControl v1.1.1
 
 DylanMayControl is a Devil May Cry-inspired directional-input combat overhaul and weapon swapping mod for CONTROL Resonant.
 
@@ -6,10 +6,10 @@ Current route: **f2g plugin (recommended Main download)**. Both variants use ide
 
 ## Compatibility and installation
 
-Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.0.4 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
+Supported CONTROLResonant.exe: FileVersion 0.564.629.5; ProductVersion 26.1.29.0; SHA256 9f56611d767c9227a8a1b250c01acf9478b50933c65f86a1e044fcc53df67cb1. v1.1.1 targets this exact updated executable. Earlier 1.0.2 native and 1.0.1 f2g releases target 0.563.737.9. Other executable revisions may be refused by the native guards.
 
 - Optional native Original DLL: use the previously published `DylanMayControl-1.0.3-OriginalDLL.zip` beside CONTROLResonant.exe; it installs root xinput1_4.dll. No f2g requirement. On Proton use `xinput1_4=n,b` in your game's DLL overrides. The optional route remains at v1.0.3.
-- Main/default f2g: extract `DylanMayControl-1.0.4.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
+- Main/default f2g: extract `DylanMayControl-1.1.1.zip` to install crmods/CombatLoadout/combatloadout.dll; requires the separate [f2g DLL Mod Loader 1.0.0](https://www.nexusmods.com/controlresonant/mods/9). No loader is bundled. On Proton use `winmm=n,b`.
 
 Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, saves and unrelated mods. When switching routes, back up/remove only the other DylanMayControl DLL; f2g may remain for unrelated plugins. Merge overrides with existing launcher settings. Follow INSTALLATION.txt and USER_GUIDE.txt in the release archive.
 
@@ -17,14 +17,14 @@ Close the game before changing DLLs. Preserve crmod-bindings.ini and crmod.ini, 
 
 Three primary/secondary slots, custom cycle bindings, queued native weapon handoffs with selected native audio cues on accepted requests, held lock and target-relative finisher commands, sustained charged Uppercut targeting, one owned Split Pivot/Orbit each, and adjustable resource loot. Native movement, attack pace, cancels, acquisition and per-weapon upgrades remain enforced. See CHANGELOG.md and BUILDING.md.
 
-The f2g 1.0.4 plugin passed strict Win64 build/export checks and an isolated 15-second Linux/Proton startup with successful native bank loading. Queue ordering, PCM assets, native resource/API handling and delayed Init bank retry were checked with focused tests. Audible gameplay and SFX-volume acceptance remain human pending; no performance gain is claimed. The optional Original DLL source route and prior release artifacts are preserved at v1.0.3.
+The f2g 1.1.1 plugin passed strict Win64 build/export checks and an isolated 15-second Linux/Proton startup with successful native bank loading. Queue ordering, PCM assets, native resource/API handling and delayed Init bank retry were checked with focused tests. Audible gameplay and SFX-volume acceptance remain human pending; no performance gain is claimed. The optional Original DLL source route and prior release artifacts are preserved at v1.0.3.
 
 Production diagnostic logging is compiled out in both routes. The functionality/performance source and binary audit found no blocking issue or new steady-state regression in reviewed paths. This is not a controlled current-build FPS or 1% low measurement.
 
 ## Source and release
 
 - [Native Original DLL v1.0.3](https://github.com/Me3paw/DylanMayControl/tree/original-dll-v1.0.3)
-- [f2g v1.0.4](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.0.4)
+- [f2g v1.1.1](https://github.com/Me3paw/DylanMayControl/tree/f2g-v1.1.1)
 - [Nexus Mods](https://www.nexusmods.com/controlresonant/mods/181)
 
 Plugin DLL SHA256: `21fcfa63f96ee83676d8b6f52f2a84b177ba58210530bbb6a1c1096259de5fa5`. Install ZIP SHA256: `e09130117807ed0c5ddfb27db974daa78369a8038a9c5897206750da83ec75ee`. The DLL-only install ZIP contains exactly `crmods/CombatLoadout/combatloadout.dll`; source and development files are published separately. Older tags and Nexus files retain prior-build releases.

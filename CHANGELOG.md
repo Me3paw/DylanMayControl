@@ -1,4 +1,4 @@
-# DylanMayControl v1.0.4
+# DylanMayControl v1.1.1
 
 - Adds selected native game-audio cues when a primary or secondary weapon switch is accepted into the queue, including during recovery. Cues never replay at handoff; rejected and no-op requests remain silent.
 - Strike, Cleave, Crush, Drill and Extend use audition 01; Glaive uses audition 02. Six verified PCM samples are embedded in a custom Wwise bank and routed through the stock Player/SFX bus, preserving game SFX and master volume.
