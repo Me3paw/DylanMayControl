@@ -1,4 +1,4 @@
-DylanMayControl v1.0.2
+DylanMayControl v1.1.1
 Author / release account: myqueenformdeath
 
 Inspired by Devil May Cry's directional-input combat and weapon swapping. No Devil May Cry assets are included.
@@ -16,6 +16,6 @@ Development was AI Assisted by OpenAI Codex and Anthropic Claude, under the auth
 Permissions: original author code and documentation are MIT-licensed. You may use, copy, modify, distribute and sell covered code while retaining the MIT notice; see LICENSE. This permission excludes Remedy's game icons and audio, including src/ui/weapon_icons.js and src/audio/weapon_cues; their rights remain with Remedy and the applicable fan-content rules. MinHook and HDE retain their included BSD notices. The compiled mod includes game icons and audio, so the original-code license is not a grant to sell or separately reuse those assets.
 
 Source: https://github.com/Me3paw/DylanMayControl
-Exact v1.0.2 Original DLL source: included SOURCE/
+Exact v1.1.1 Original DLL source: included SOURCE/
 
 The GitHub repository contains earlier release history; the included source snapshot matches this update.
